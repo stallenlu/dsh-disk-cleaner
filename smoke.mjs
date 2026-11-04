@@ -210,6 +210,10 @@ check('confirm choice persisted', storage.get('dsc.confirm') === 'never');
 check('scan honours the preselect preference', source.includes('const want = defaultPick.get();'));
 check('clean honours the confirm preference', source.includes("confirmFirst.get() === 'always'"));
 check('the settings page reuses the same rows', /function SettingsOptions\(\{ t \}\)[\s\S]{0,400}h\(ConfigRows, \{ t \}\)/.test(source));
+check('re-run asks the host to skip its cache', source.includes('onClick: () => run(true)') && source.includes("force === true ? { force: true } : {}"));
+check('an assessment row opens its folder', source.includes("call('reveal'") && source.includes('dsc-audit-row dsc-openable'));
+check('a row opens on click, right click and Enter', /const openable = \(payload\) =>[\s\S]{0,600}onClick: open[\s\S]{0,200}onContextMenu: open[\s\S]{0,300}'Enter'/.test(source));
+check('an app folder is opened by scope and name', source.includes('openable({ scope: app.scope, name: app.name })'));
 
 {
   const button = find(live('main')[0].render(), (n) => n.type === 'button' && n.props && n.props.className === 'dsc-head-btn');
@@ -250,17 +254,20 @@ apply({
 check('route registered under the documented prefix', route?.kind === 'prefix' && route?.path === '/api/disk-cleaner/');
 check('tool registered', definition?.name === 'disk_cleaner');
 check(
-  'tool accepts the four documented actions',
-  JSON.stringify(definition.parameters.properties.action.enum) === JSON.stringify(['overview', 'scan', 'clean', 'audit']),
+  'tool accepts the five documented actions',
+  JSON.stringify(definition.parameters.properties.action.enum) === JSON.stringify(['overview', 'scan', 'clean', 'audit', 'reveal']),
 );
 check('tool needs no id for overview', JSON.stringify(definition.parameters.required) === JSON.stringify(['action']));
 check('tool description warns audit is read-only', /read-only: it never removes anything/.test(definition.description));
 check('every effect is labelled', applied.every((label) => typeof label === 'string' && label.startsWith('dsh-disk-cleaner:')));
 
 const ids = [...catalog.matchAll(/^\s{4}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
-check('catalog has the documented 13 targets', ids.length === 13, `got ${ids.length}`);
+check('catalog has the documented 14 targets', ids.length === 14, `got ${ids.length}`);
 check('every catalog id has a client label', ids.every((id) => zhKeys.includes(`target_${id}`) && enKeys.includes(`target_${id}`)));
-check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation'].every((k) => zhKeys.includes(k)));
+check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation', 'why_pending-update'].every((k) => zhKeys.includes(k)));
+const areaIds = [...auditSrc.matchAll(/^\s{6}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
+check('every assessment area has a translated label and reason', areaIds.length > 0 && areaIds.every((id) => zhKeys.includes(`area_${id}`) && zhKeys.includes(`area_${id}_why`) && enKeys.includes(`area_${id}`) && enKeys.includes(`area_${id}_why`)), `areas: ${areaIds.join(',')}`);
+check('a reveal request names an area, never a path', index.includes("action === 'reveal'") && auditSrc.includes('export function areaPaths') && !/revealPath[\s\S]{0,200}payload\.path/.test(index));
 check('no caller may pass a raw path', !/parameters[\s\S]{0,400}paths/.test(index) && catalog.includes('Callers select catalog ids'));
 
 const codes = [...new Set([...plan.matchAll(/code: '([a-z-]+)'/g)].map((m) => m[1]))];

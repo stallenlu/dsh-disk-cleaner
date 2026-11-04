@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.0.0` |
+| **version** | `1.1.0` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -16,7 +16,7 @@
 
 **dsh-disk-cleaner** is a disk-space plugin for [DeepSeek Harness](https://github.com/deepseek-ai) (DSH). It does two different jobs, and keeps them apart on purpose:
 
-1. **Clean** — thirteen known-safe cache locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin). Only these are ever deleted.
+1. **Clean** — fourteen known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers). Only these are ever deleted.
 2. **Assess** — everything the plugin will *not* delete (installed programs, the WSL virtual disk, the Windows component store, chat-app data, your own folders). Measured and listed, never removed.
 
 The assessment ends with a **plan**: the same numbers ordered by what it costs you to act, with the exact Windows command for the steps the plugin cannot perform itself.
@@ -27,16 +27,17 @@ Both the panel and the agent reach the *same* operations: the cleaning logic liv
 
 | Feature | Description |
 | --- | --- |
-| Scan | Measures all thirteen targets concurrently and shows what each occupies |
+| Scan | Measures all fourteen targets concurrently and shows what each occupies |
 | Per-drive filter | Chip row of mounted volumes; scanning or cleaning can be limited to one drive, and rows with nothing on that drive disappear |
-| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation`) and a permanent legend, so "caution" never means "unspecified" |
+| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update`) and a permanent legend, so "caution" never means "unspecified" |
 | Aged deletion | `temp` and `windows-temp` only remove files older than one day; files a running program still holds are skipped |
-| Space assessment | Walks the disk read-only and groups the result into Windows / installed software / your own files, plus the ten largest app-data folders |
+| Space assessment | Walks the disk read-only and groups the result into Windows / installed software / your own files, plus the ten largest app-data folders. Any row opens its folder in Explorer — click, right click, or Enter |
+| Honest re-run | Re-running the assessment re-measures; a plain call still answers from the ten-minute cache |
 | Plan | Nine possible steps, ordered from zero-cost to your-decision-only; the steps the plugin can run have a button, the rest have a copyable command |
 | Entry placement | Sidebar icon, settings section, or both (default) — switched from the plugin's own config card or the panel's ⚙ button |
 | Behaviour settings | What is preselected after a scan, and whether deleting asks first |
 | Panel memory | Scan results, the selection and the assessment survive switching to another panel and back |
-| Agent tool | `disk_cleaner` exposes the same four actions to the model, in readable prose |
+| Agent tool | `disk_cleaner` exposes the same five actions to the model, in readable prose |
 | Bilingual | Follows the host locale service; zh and en dictionaries ship together |
 
 ### Cleanup targets
@@ -58,12 +59,13 @@ Every path is built from this table — a caller selects an **id**, never a path
 | `windows-update` | `C:\Windows\SoftwareDistribution\Download` | purge | caution | needs elevation |
 | `recycle-bin` | `$Recycle.Bin\S-1-5-*` on every mounted volume | purge | safe | it is the Recycle Bin |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | purge | caution | rebuilt |
+| `app-updaters` | `*-updater` folders under `%LOCALAPPDATA%` and `%APPDATA%` — the installers app updaters leave behind | aged, 3 days | caution | a download from the last three days may still be a pending update |
 
 `aged` targets skip anything modified within the retention window; `purge` targets remove every entry. Both keep the target directory itself and leave locked entries alone, counting them as skipped.
 
 ### Space assessment areas
 
-`wsl` (ext4.vhdx images), `winsxs`, `system-files` (hiberfil / pagefile / swapfile), `programs` (user scope), `program-files` (machine scope), `downloads`, `documents`, `pictures`, `videos`, `desktop`. An area that does not exist is dropped rather than reported as zero. The ten largest folders under `%LOCALAPPDATA%` and `%APPDATA%` (≥100 MB each) are listed separately, because "3.6 GB in Roaming\kingsoft" points somewhere a Settings page does not.
+`wsl` (ext4.vhdx images), `winsxs`, `system-files` (hiberfil / pagefile / swapfile), `programs` (user scope), `program-files` (machine scope), `old-versions` (builds an installer kept for rollback), `update-payloads` (setup and installer files sitting in temp and app-data), `downloads`, `documents`, `pictures`, `videos`, `desktop`. An area that does not exist is dropped rather than reported as zero. The ten largest folders under `%LOCALAPPDATA%` and `%APPDATA%` (≥100 MB each) are listed separately, because "3.6 GB in Roaming\kingsoft" points somewhere a Settings page does not.
 
 ### Plan steps
 
@@ -99,10 +101,12 @@ Panel state (drives, drive filter, scan rows, selection, notices, assessment) is
 
 | Argument | Type | Notes |
 | --- | --- | --- |
-| `action` | `overview` \| `scan` \| `clean` \| `audit` | required |
+| `action` | `overview` \| `scan` \| `clean` \| `audit` \| `reveal` | required |
 | `ids` | string[] | catalog ids; required for `clean`, max 32 |
 | `drive` | string | `C:` / `D:\` — limits the work to one volume |
 | `confirm` | boolean | without it, `clean` is a dry run |
+| `force` | boolean | `audit` re-measures instead of answering from the 10-minute cache |
+| `area` / `scope` + `name` / `index` | | `reveal` names what to open; never a path |
 
 `clean` without `confirm: true` deletes nothing and reports what it would free — that is the approval path. `audit` is read-only and returns the plan in prose, ending with "Report that plan to the user; never run those commands yourself."
 
@@ -113,11 +117,12 @@ One route, `POST /api/disk-cleaner/`, used by the panel:
 ```jsonc
 {"action":"overview"}                          // drives + target ids
 {"action":"scan","drive":"C:"}                 // measured targets
-{"action":"audit"}                             // areas + largest apps + plan
+{"action":"audit","force":true}                // areas + largest apps + plan
+{"action":"reveal","area":"downloads"}         // opens it in Explorer
 {"action":"clean","ids":["temp"],"confirm":true}
 ```
 
-POST only (405 otherwise), same-origin only (403 otherwise), body ≤4096 bytes, at most 32 ids, unknown ids or actions rejected with 400. Handlers never receive a path.
+POST only (405 otherwise), same-origin only (403 otherwise), body ≤4096 bytes, at most 32 ids, unknown ids or actions rejected with 400. Handlers never receive a path: `reveal` names an assessment area (or an app folder by scope and name), the host rebuilds the path from the same table that measured it, and hands that to `explorer.exe`.
 
 ### Safety rules
 
@@ -165,7 +170,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 61 assertions, zero dependencies
+node smoke.mjs                       # 67 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -182,7 +187,9 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 | Client bundle executes, slots register and dispose | `node smoke.mjs` (real bundle in a fake DOM) |
 | Settings reach the plugin page, the settings section and the panel | `node smoke.mjs` + `cordis_inspect_query` slot occupants |
 | Route and tool registered | `node smoke.mjs` (throwaway `ctx`) |
-| `overview` / `scan` / `clean` / `audit` round-trip | Real `POST /api/disk-cleaner/` against a live host |
+| `overview` / `scan` / `clean` / `audit` / `reveal` round-trip | Real `POST /api/disk-cleaner/` against a live host |
+| Re-run bypasses the cache, a plain call still uses it | `audit` twice: `cached: false`, then `true` |
+| `reveal` refuses a path and a traversal | `name: "../.."`, and a request with neither area nor name → 400 |
 | Real deletion keeps the target directory, honours the age limit | Temp directory seeded with old and new files |
 | Dry run deletes nothing | `confirm` omitted, byte counts unchanged |
 | Drive filter rejects unmounted and malformed volumes | `C:extra`, `Z:`, `abc` → 400 |
@@ -200,7 +207,8 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ### Known ceilings
 
 - **Windows only.** Paths are built from the Windows layout; there is no POSIX branch.
-- **First assessment takes 40–60 s.** Named areas and the per-app folder list walk overlapping trees. A result is cached for 10 minutes and invalidated by a real deletion, so only the first caller pays. `ponytail:` comment in `lib/audit.js` records the shared-map alternative.
+- **First assessment takes 30–60 s.** Named areas and the per-app folder list walk overlapping trees. A result is cached for 10 minutes and invalidated by a real deletion, so only the first caller pays; the panel's re-run button passes `force` and always pays it. `ponytail:` comment in `lib/audit.js` records the shared-map alternative.
+- **Leftover installers are cleaned by age, not by knowledge.** `*-updater` folders are recognised by name; a download from the last three days is left alone because only the app knows whether it has been applied.
 - **No elevation.** The one Windows directory that refuses an unelevated write is reported, never attempted.
 - **No uninstall, no move.** Steps the plugin cannot perform carry a command instead of a button.
 - **Traversal caps** at 2,000,000 entries per walk, so an absurdly large tree is measured partially rather than hanging.
@@ -210,16 +218,16 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (330)  Host: HTTP route + disk_cleaner tool, same run() for both
-├─ lib/catalog.js  (413)  The 13 targets, measurePath / purgePath / resolveTargets / drives
-├─ lib/audit.js    (262)  Read-only assessment, 10-minute cache, exposes no deletion
+├─ lib/index.js    (403)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
+├─ lib/catalog.js  (500)  The 14 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1234)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1341)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              61 assertions, zero dependencies
+└─ smoke.mjs              67 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
@@ -231,7 +239,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 **dsh-disk-cleaner** 是 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）的磁盘空间插件。它做两件不同的事，并且刻意分开：
 
-1. **清理** —— 十三个已知安全的缓存位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站）。只有这些会被删除。
+1. **清理** —— 十四个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留）。只有这些会被删除。
 2. **评估** —— 所有本插件**不会**删的东西（已装程序、WSL 虚拟磁盘、Windows 组件库、聊天软件数据、你自己的文件夹）。只测量、只列出，绝不删除。
 
 评估的最后是一份**处理方案**：同一批数字按「你要付出多少代价」排序，本插件做不到的步骤附上确切的 Windows 命令。
@@ -242,16 +250,17 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 | 功能 | 说明 |
 | --- | --- |
-| 扫描 | 并发测量全部十三个目标，显示各自占用 |
+| 扫描 | 并发测量全部十四个目标，显示各自占用 |
 | 按盘过滤 | 已挂载卷的胶囊按钮；扫描与清理都可限定单盘，该盘上为空的项会隐藏 |
-| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation`），图例常驻，所以「注意」永远不是「说不清」 |
+| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update`），图例常驻，所以「注意」永远不是「说不清」 |
 | 保留期删除 | `temp` 与 `windows-temp` 只删一天前的文件；被运行中程序占住的自动跳过 |
-| 空间评估 | 只读遍历磁盘，按 Windows 自身 / 已装软件 / 你自己的文件 分组，另列占用最大的十个应用数据目录 |
+| 空间评估 | 只读遍历磁盘，按 Windows 自身 / 已装软件 / 你自己的文件 分组，另列占用最大的十个应用数据目录。每一行都能打开所在目录——单击、右键或回车 |
+| 重新评估真的重测 | 「重新评估」会重新测量；普通调用仍然走十分钟缓存 |
 | 处理方案 | 九种可能步骤，从零风险到只能你决定；本插件能执行的带按钮，其余给可复制的命令 |
 | 入口位置 | 侧边栏图标、设置页分区、或两者都要（默认）——在插件自己的配置卡或面板 ⚙ 里切换 |
 | 行为设置 | 扫描后默认勾选什么、删除前是否确认 |
 | 面板记忆 | 扫描结果、勾选、评估结果在切走再回来时都还在 |
-| Agent 工具 | `disk_cleaner` 把同样的四个动作以可读文本交给模型 |
+| Agent 工具 | `disk_cleaner` 把同样的五个动作以可读文本交给模型 |
 | 双语 | 跟随宿主语言服务，zh / en 字典一起发布 |
 
 ### 清理目标
@@ -273,12 +282,13 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | `windows-update` | `C:\Windows\SoftwareDistribution\Download` | 全清 | 注意 | 需要管理员权限 |
 | `recycle-bin` | 各已挂载卷的 `$Recycle.Bin\S-1-5-*` | 全清 | 安全 | 就是回收站 |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | 全清 | 注意 | 会重建 |
+| `app-updaters` | `%LOCALAPPDATA%` 与 `%APPDATA%` 下的 `*-updater` 目录——升级程序留下的安装包 | 保留期 3 天 | 注意 | 三天内的下载可能还是待安装的更新 |
 
 保留期方式会跳过保留期内修改过的文件；全清方式清掉全部条目。两者都保留目标目录本身，并把锁定或无权限的条目跳过计数。
 
 ### 空间评估范围
 
-`wsl`（ext4.vhdx 映像）、`winsxs`、`system-files`（hiberfil / pagefile / swapfile）、`programs`（用户级）、`program-files`（机器级）、`downloads`、`documents`、`pictures`、`videos`、`desktop`。不存在的范围直接略去，不报成 0。`%LOCALAPPDATA%` 与 `%APPDATA%` 下超过 100 MB 的十个最大目录另外列出——因为「Roaming\kingsoft 占 3.6 GB」指向的地方，设置页里根本找不到。
+`wsl`（ext4.vhdx 映像）、`winsxs`、`system-files`（hiberfil / pagefile / swapfile）、`programs`（用户级）、`program-files`（机器级）、`old-versions`（安装器留给回滚的旧版本目录）、`update-payloads`（临时目录与应用数据里躺着的 setup / installer 文件）、`downloads`、`documents`、`pictures`、`videos`、`desktop`。不存在的范围直接略去，不报成 0。`%LOCALAPPDATA%` 与 `%APPDATA%` 下超过 100 MB 的十个最大目录另外列出——因为「Roaming\kingsoft 占 3.6 GB」指向的地方，设置页里根本找不到。
 
 ### 处理方案步骤
 
@@ -314,10 +324,12 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 | 参数 | 类型 | 说明 |
 | --- | --- | --- |
-| `action` | `overview` \| `scan` \| `clean` \| `audit` | 必填 |
+| `action` | `overview` \| `scan` \| `clean` \| `audit` \| `reveal` | 必填 |
 | `ids` | string[] | catalog id；`clean` 必填，最多 32 个 |
 | `drive` | string | `C:` / `D:\`，把操作限定在一块盘 |
 | `confirm` | boolean | 不传时 `clean` 只做试运行 |
+| `force` | boolean | `audit` 跳过 10 分钟缓存重新测量 |
+| `area` / `scope` + `name` / `index` | | `reveal` 用它说明要打开什么，从不传路径 |
 
 不带 `confirm: true` 的 `clean` 一个字节都不删，只报告本来能释放多少——这就是审批路径。`audit` 只读，并以文本返回处理方案，结尾固定为「把方案报告给用户，不要自己执行这些命令」。
 
@@ -328,11 +340,12 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 ```jsonc
 {"action":"overview"}                          // 磁盘容量 + 目标 id
 {"action":"scan","drive":"C:"}                 // 测量后的目标
-{"action":"audit"}                             // 范围 + 最大应用目录 + 方案
+{"action":"audit","force":true}                // 范围 + 最大应用目录 + 方案
+{"action":"reveal","area":"downloads"}         // 在资源管理器中打开
 {"action":"clean","ids":["temp"],"confirm":true}
 ```
 
-只接受 POST（否则 405），只接受同源（否则 403），body ≤4096 字节，id 最多 32 个，未知 id 或动作返回 400。处理器永远收不到路径。
+只接受 POST（否则 405），只接受同源（否则 403），body ≤4096 字节，id 最多 32 个，未知 id 或动作返回 400。处理器永远收不到路径：`reveal` 只报一个评估范围（或 scope + name 表示的应用目录），宿主用当初测量它的那张表重建路径，再交给 `explorer.exe`。
 
 ### 安全规则
 
@@ -384,7 +397,7 @@ git clone https://github.com/stallenlu/dsh-disk-cleaner
 ### 开发
 
 ```bash
-node smoke.mjs                       # 61 条断言，零依赖
+node smoke.mjs                       # 67 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -401,7 +414,9 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 | client bundle 能执行、slot 能注册与拆除 | `node smoke.mjs`（假 DOM 里跑真 bundle） |
 | 设置能到达插件页、设置页、面板三处 | `node smoke.mjs` + `cordis_inspect_query` 查 slot 占用 |
 | 路由与工具已注册 | `node smoke.mjs`（一次性 `ctx`） |
-| 四个动作端到端 | 对真实宿主 `POST /api/disk-cleaner/` |
+| 五个动作端到端 | 对真实宿主 `POST /api/disk-cleaner/` |
+| 「重新评估」绕过缓存、普通调用仍走缓存 | 连调两次 `audit`：`cached` 先 false 后 true |
+| `reveal` 拒绝路径与目录穿越 | `name: "../.."`，以及既无 area 又无 name → 400 |
 | 真删保留目标目录、遵守保留期 | 在 Temp 里造一旧一新两个文件验证 |
 | 试运行不删任何东西 | 不传 `confirm`，字节数不变 |
 | 盘过滤拒绝未挂载与畸形卷名 | `C:extra`、`Z:`、`abc` → 400 |
@@ -419,7 +434,8 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ### 已知上限
 
 - **仅 Windows。** 路径按 Windows 目录布局构造，没有 POSIX 分支。
-- **首次评估 40–60 秒。** 命名范围与「最大应用目录」会遍历重叠的树。结果缓存 10 分钟，并在真删后失效，所以只有第一个调用者付这笔钱。`lib/audit.js` 里有 `ponytail:` 注释记录「共享 Map」这个替代方案。
+- **首次评估 30–60 秒。** 命名范围与「最大应用目录」会遍历重叠的树。结果缓存 10 分钟，并在真删后失效，所以只有第一个调用者付这笔钱；面板的「重新评估」会传 `force`，每次都要重付。`lib/audit.js` 里有 `ponytail:` 注释记录「共享 Map」这个替代方案。
+- **更新安装包按时间清理，不靠识别版本。** `*-updater` 目录靠名字认；三天内的下载一律不动，因为只有应用自己知道它装了没有。
 - **不提权。** 那个拒绝普通权限写入的 Windows 目录只报告，不尝试删除。`C:\Windows\Temp` **不是**其中之一：默认 ACL 给 `BUILTIN\Users` 创建与删除权限，挡住删除的只是被服务占用的 EBUSY，而保留期已经处理了这一类。
 - **不卸载、不迁移。** 本插件做不到的步骤给命令，不给按钮。
 - **遍历上限**每棵树 2,000,000 条目，极端大的树会被部分测量，而不是卡死。
@@ -429,16 +445,16 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (330)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()
-├─ lib/catalog.js  (413)  13 个目标，measurePath / purgePath / resolveTargets / drives
-├─ lib/audit.js    (262)  只读评估，10 分钟缓存，不暴露任何删除
+├─ lib/index.js    (403)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
+├─ lib/catalog.js  (500)  14 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1234)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1341)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              61 条断言，零依赖
+└─ smoke.mjs              67 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
