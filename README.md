@@ -133,12 +133,18 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 ### Install
 
-From the plugin manager: point `install_bundle` at a checkout of this repository. Or add it to the profile by hand — in `$DSH_PROFILE_DIR/package.json`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner):
+
+```bash
+npm i dsh-disk-cleaner
+```
+
+Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "link:C:/path/to/dsh-disk-cleaner"
+    "dsh-disk-cleaner": "^1.0.0"
   },
   "dsh": {
     "profile": {
@@ -148,11 +154,13 @@ From the plugin manager: point `install_bundle` at a checkout of this repository
 }
 ```
 
+Or point the plugin manager's `install_bundle` at a local checkout, using a `link:` dependency instead of a version range:
+
 ```bash
 git clone https://github.com/stallenlu/dsh-disk-cleaner
 ```
 
-The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edit is needed. A `link:` dependency is a symlink, so **client** changes take effect on a page refresh, while **host** changes (`lib/index.js`) need the bundle re-enabled or DSH restarted.
+The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edit is needed. A `link:` dependency is a symlink, so **client** changes take effect on a page refresh, while **host** changes (`lib/index.js`) need the bundle re-enabled or DSH restarted. An installed npm copy is the opposite: bump the version to move it.
 
 ### Development
 
@@ -340,12 +348,18 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 ### 安装
 
-在插件管理里把 `install_bundle` 指向本仓库的检出目录；或手工加入 profile —— 在 `$DSH_PROFILE_DIR/package.json`：
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)。
+
+```bash
+npm i dsh-disk-cleaner
+```
+
+然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
 
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "link:C:/path/to/dsh-disk-cleaner"
+    "dsh-disk-cleaner": "^1.0.0"
   },
   "dsh": {
     "profile": {
@@ -355,7 +369,13 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 }
 ```
 
-bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 patch。`link:` 依赖是符号链接，所以改 **client** 刷新页面即生效，改 **host**（`lib/index.js`）需要重新启用该 bundle 或重启 DSH。
+或者把插件管理的 `install_bundle` 指向本地检出目录，依赖写成 `link:` 而不是版本范围：
+
+```bash
+git clone https://github.com/stallenlu/dsh-disk-cleaner
+```
+
+bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 patch。`link:` 依赖是符号链接，所以改 **client** 刷新页面即生效，改 **host**（`lib/index.js`）需要重新启用该 bundle 或重启 DSH。从 npm 装则是相反的一面：要升级就改版本号。
 
 ```bash
 git clone https://github.com/stallenlu/dsh-disk-cleaner
