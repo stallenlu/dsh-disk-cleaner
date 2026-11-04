@@ -1,0 +1,5 @@
+# dsh-disk-cleaner: disk space scanner and reclaimer.
+# The insert row is what makes this bundle load; keep the id on its own line.
+- insert:
+    - id: dsh-disk-cleaner
+      name: 'dsh-disk-cleaner'
