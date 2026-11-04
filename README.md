@@ -179,7 +179,7 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 | Dry run deletes nothing | `confirm` omitted, byte counts unchanged |
 | Drive filter rejects unmounted and malformed volumes | `C:extra`, `Z:`, `abc` → 400 |
 | Plan excludes elevation bytes from `reclaimNow` | Live audit against this machine |
-| Visual layout | **not verified** — no browser automation in this environment |
+| Visual layout | Checked by hand in the running Web UI. No browser automation here, so this one is a human check, not a test. |
 
 ### Implementation notes
 
@@ -386,7 +386,7 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 | 试运行不删任何东西 | 不传 `confirm`，字节数不变 |
 | 盘过滤拒绝未挂载与畸形卷名 | `C:extra`、`Z:`、`abc` → 400 |
 | 方案不把提权目标的字节算进「现在能回收」 | 在本机跑真实 audit |
-| 视觉排版 | **未验证** —— 本环境没有浏览器自动化 |
+| 视觉排版 | 在运行中的 Web UI 里手工确认过。本环境没有浏览器自动化，所以这条是人眼检查，不是测试。 |
 
 ### 实现要点
 
