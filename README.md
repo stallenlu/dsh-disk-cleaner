@@ -133,7 +133,7 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 ### Install
 
-From the plugin manager: point `install_bundle` at this directory. Or add it to the profile by hand — in `$DSH_PROFILE_DIR/package.json`:
+From the plugin manager: point `install_bundle` at a checkout of this repository. Or add it to the profile by hand — in `$DSH_PROFILE_DIR/package.json`:
 
 ```json
 {
@@ -146,6 +146,10 @@ From the plugin manager: point `install_bundle` at this directory. Or add it to 
     }
   }
 }
+```
+
+```bash
+git clone https://github.com/stallenlu/dsh-disk-cleaner
 ```
 
 The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edit is needed. A `link:` dependency is a symlink, so **client** changes take effect on a page refresh, while **host** changes (`lib/index.js`) need the bundle re-enabled or DSH restarted.
@@ -336,7 +340,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 ### 安装
 
-在插件管理里把 `install_bundle` 指向本目录；或手工加入 profile —— 在 `$DSH_PROFILE_DIR/package.json`：
+在插件管理里把 `install_bundle` 指向本仓库的检出目录；或手工加入 profile —— 在 `$DSH_PROFILE_DIR/package.json`：
 
 ```json
 {
@@ -352,6 +356,10 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 ```
 
 bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 patch。`link:` 依赖是符号链接，所以改 **client** 刷新页面即生效，改 **host**（`lib/index.js`）需要重新启用该 bundle 或重启 DSH。
+
+```bash
+git clone https://github.com/stallenlu/dsh-disk-cleaner
+```
 
 ### 开发
 
