@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.1.0` |
+| **version** | `1.2.0` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -16,7 +16,7 @@
 
 **dsh-disk-cleaner** is a disk-space plugin for [DeepSeek Harness](https://github.com/deepseek-ai) (DSH). It does two different jobs, and keeps them apart on purpose:
 
-1. **Clean** — fourteen known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers). Only these are ever deleted.
+1. **Clean** — nineteen known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers, per-app caches and logs, superseded plugin versions and applied update packages). Only these are ever deleted.
 2. **Assess** — everything the plugin will *not* delete (installed programs, the WSL virtual disk, the Windows component store, chat-app data, your own folders). Measured and listed, never removed.
 
 The assessment ends with a **plan**: the same numbers ordered by what it costs you to act, with the exact Windows command for the steps the plugin cannot perform itself.
@@ -27,9 +27,9 @@ Both the panel and the agent reach the *same* operations: the cleaning logic liv
 
 | Feature | Description |
 | --- | --- |
-| Scan | Measures all fourteen targets concurrently and shows what each occupies |
+| Scan | Measures all nineteen targets concurrently and shows what each occupies |
 | Per-drive filter | Chip row of mounted volumes; scanning or cleaning can be limited to one drive, and rows with nothing on that drive disappear |
-| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update`) and a permanent legend, so "caution" never means "unspecified" |
+| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded`) and a permanent legend, so "caution" never means "unspecified" |
 | Aged deletion | `temp` and `windows-temp` only remove files older than one day; files a running program still holds are skipped |
 | Space assessment | Walks the disk read-only and groups the result into Windows / installed software / your own files, plus the ten largest app-data folders. Any row opens its folder in Explorer — click, right click, or Enter |
 | Honest re-run | Re-running the assessment re-measures; a plain call still answers from the ten-minute cache |
@@ -60,6 +60,11 @@ Every path is built from this table — a caller selects an **id**, never a path
 | `recycle-bin` | `$Recycle.Bin\S-1-5-*` on every mounted volume | purge | safe | it is the Recycle Bin |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | purge | caution | rebuilt |
 | `app-updaters` | `*-updater` folders under `%LOCALAPPDATA%` and `%APPDATA%` — the installers app updaters leave behind | aged, 3 days | caution | a download from the last three days may still be a pending update |
+| `app-caches` | named cache folders inside `%APPDATA%`: the WPS CEF cache, FTNN `cef_cache`, and the `Cache` / `Code Cache` / `CachedData` / `GPUCache` of Qoder, Trae, the DSH desktop app, PersonalCenter, the WeChat devtools and QQ PC Manager | purge | caution | CEF and Chromium caches rebuild on next start |
+| `app-logs` | log folders inside `%APPDATA%`: FTNN, WeChat, Qoder, Trae, DingTalk, PersonalCenter, Clash Verge | purge | safe | nothing reads an old log back at runtime |
+| `app-temp` | scratch folders apps keep inside their own `%APPDATA%` folder instead of `%TEMP%`: `WorkDaddy\client-tmp`, `PersonalCenter\Temp` | aged, 2 days | caution | the owning app may be running and holding files |
+| `plugin-old-versions` | every version but the newest of each family in the WPS plugin pool `kingsoft\wps\addons\pool\win-i386` | purge | caution | the manager loads the newest; the rest are rollback copies |
+| `update-packages` | update packages already applied: FTNN `.spd` patches whose build number is below the newest `Program Files\FTNN\app\[version]`, and `WorkDaddy\update` installers below the installed version | purge | caution | decided by version comparison, not by age |
 
 `aged` targets skip anything modified within the retention window; `purge` targets remove every entry. Both keep the target directory itself and leave locked entries alone, counting them as skipped.
 
@@ -218,11 +223,11 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (403)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
-├─ lib/catalog.js  (500)  The 14 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/index.js    (405)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
+├─ lib/catalog.js  (688)  The 19 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1341)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1355)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
@@ -239,7 +244,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 **dsh-disk-cleaner** 是 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）的磁盘空间插件。它做两件不同的事，并且刻意分开：
 
-1. **清理** —— 十四个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留）。只有这些会被删除。
+1. **清理** —— 十九个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留、各应用的缓存与日志、被淘汰的插件版本与已应用的更新包）。只有这些会被删除。
 2. **评估** —— 所有本插件**不会**删的东西（已装程序、WSL 虚拟磁盘、Windows 组件库、聊天软件数据、你自己的文件夹）。只测量、只列出，绝不删除。
 
 评估的最后是一份**处理方案**：同一批数字按「你要付出多少代价」排序，本插件做不到的步骤附上确切的 Windows 命令。
@@ -250,9 +255,9 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 | 功能 | 说明 |
 | --- | --- |
-| 扫描 | 并发测量全部十四个目标，显示各自占用 |
+| 扫描 | 并发测量全部十九个目标，显示各自占用 |
 | 按盘过滤 | 已挂载卷的胶囊按钮；扫描与清理都可限定单盘，该盘上为空的项会隐藏 |
-| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update`），图例常驻，所以「注意」永远不是「说不清」 |
+| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded`），图例常驻，所以「注意」永远不是「说不清」 |
 | 保留期删除 | `temp` 与 `windows-temp` 只删一天前的文件；被运行中程序占住的自动跳过 |
 | 空间评估 | 只读遍历磁盘，按 Windows 自身 / 已装软件 / 你自己的文件 分组，另列占用最大的十个应用数据目录。每一行都能打开所在目录——单击、右键或回车 |
 | 重新评估真的重测 | 「重新评估」会重新测量；普通调用仍然走十分钟缓存 |
@@ -283,6 +288,11 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | `recycle-bin` | 各已挂载卷的 `$Recycle.Bin\S-1-5-*` | 全清 | 安全 | 就是回收站 |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | 全清 | 注意 | 会重建 |
 | `app-updaters` | `%LOCALAPPDATA%` 与 `%APPDATA%` 下的 `*-updater` 目录——升级程序留下的安装包 | 保留期 3 天 | 注意 | 三天内的下载可能还是待安装的更新 |
+| `app-caches` | `%APPDATA%` 里点名列出的缓存目录：WPS 的 CEF 缓存、FTNN 的 `cef_cache`，以及 Qoder、Trae、DSH 桌面端、PersonalCenter、微信开发者工具、腾讯电脑管家的 `Cache` / `Code Cache` / `CachedData` / `GPUCache` | 全清 | 注意 | CEF 与 Chromium 缓存会在下次启动时重建 |
+| `app-logs` | `%APPDATA%` 里的日志目录：FTNN、微信、Qoder、Trae、钉钉、PersonalCenter、Clash Verge | 全清 | 安全 | 旧日志运行时不会被读回 |
+| `app-temp` | 应用自己放在 `%APPDATA%` 里的临时目录（不走 `%TEMP%`）：`WorkDaddy\client-tmp`、`PersonalCenter\Temp` | 保留期 2 天 | 注意 | 应用可能正在运行并占用其中的文件 |
+| `plugin-old-versions` | WPS 插件池 `kingsoft\wps\addons\pool\win-i386` 里，每个插件族除最高版本以外的全部版本 | 全清 | 注意 | 管理器加载最高版本，其余是回滚副本 |
+| `update-packages` | 已应用的更新包：FTNN 的 `.spd` 补丁（build 号低于 `Program Files\FTNN\app\[版本]` 中最新者），以及 `WorkDaddy\update` 里低于已装版本的安装包 | 全清 | 注意 | 按版本号比较判断，不按时间 |
 
 保留期方式会跳过保留期内修改过的文件；全清方式清掉全部条目。两者都保留目标目录本身，并把锁定或无权限的条目跳过计数。
 
@@ -445,11 +455,11 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (403)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
-├─ lib/catalog.js  (500)  14 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/index.js    (405)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
+├─ lib/catalog.js  (688)  19 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1341)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1355)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
