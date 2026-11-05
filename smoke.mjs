@@ -262,9 +262,9 @@ check('tool description warns audit is read-only', /read-only: it never removes 
 check('every effect is labelled', applied.every((label) => typeof label === 'string' && label.startsWith('dsh-disk-cleaner:')));
 
 const ids = [...catalog.matchAll(/^\s{4}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
-check('catalog has the documented 28 targets', ids.length === 28, `got ${ids.length}`);
+check('catalog has the documented 32 targets', ids.length === 32, `got ${ids.length}`);
 check('every catalog id has a client label', ids.every((id) => zhKeys.includes(`target_${id}`) && enKeys.includes(`target_${id}`)));
-check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation', 'why_pending-update', 'why_rollback', 'why_superseded', 'why_history', 'why_duplicate', 'why_database-backup'].every((k) => zhKeys.includes(k) && enKeys.includes(k)));
+check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation', 'why_pending-update', 'why_rollback', 'why_superseded', 'why_history', 'why_duplicate', 'why_database-backup', 'why_orphan'].every((k) => zhKeys.includes(k) && enKeys.includes(k)));
 const areaIds = [...auditSrc.matchAll(/^\s{6}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
 check('every assessment area has a translated label and reason', areaIds.length > 0 && areaIds.every((id) => zhKeys.includes(`area_${id}`) && zhKeys.includes(`area_${id}_why`) && enKeys.includes(`area_${id}`) && enKeys.includes(`area_${id}_why`)), `areas: ${areaIds.join(',')}`);
 check('a reveal request names an area, never a path', index.includes("action === 'reveal'") && auditSrc.includes('export function areaPaths') && !/revealPath[\s\S]{0,200}payload\.path/.test(index));
@@ -274,6 +274,11 @@ check(
   catalog.includes('export async function measurePath(abs, cutoff)') &&
     (catalog.match(/await measurePath\(abs, cutoff\)/g) ?? []).length === 2,
   `${(catalog.match(/await measurePath\(abs, cutoff\)/g) ?? []).length} cutoff-aware call sites`,
+);
+check(
+  'an age-limited row also names the folder size',
+  catalog.includes('totalBytes') && index.includes('totalBytes: target.totalBytes') && source.includes('row.totalBytes'),
+  'scan must carry totalBytes through to the row, or an `aged` target reads as empty',
 );
 
 const codes = [...new Set([...plan.matchAll(/code: '([a-z-]+)'/g)].map((m) => m[1]))];

@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.4.0` |
+| **version** | `1.5.0` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -16,7 +16,7 @@
 
 **dsh-disk-cleaner** is a disk-space plugin for [DeepSeek Harness](https://github.com/deepseek-ai) (DSH). It does two different jobs, and keeps them apart on purpose:
 
-1. **Clean** — twenty-eight known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers, per-app caches and logs, superseded plugin versions and applied update packages). Only these are ever deleted.
+1. **Clean** — thirty-two known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers, per-app caches and logs, superseded plugin versions and applied update packages). Only these are ever deleted.
 2. **Assess** — everything the plugin will *not* delete (installed programs, the WSL virtual disk, the Windows component store, chat-app data, your own folders). Measured and listed, never removed.
 
 The assessment ends with a **plan**: the same numbers ordered by what it costs you to act, with the exact Windows command for the steps the plugin cannot perform itself.
@@ -27,9 +27,9 @@ Both the panel and the agent reach the *same* operations: the cleaning logic liv
 
 | Feature | Description |
 | --- | --- |
-| Scan | Measures all twenty-eight targets concurrently and shows what each occupies |
+| Scan | Measures all thirty-two targets concurrently and shows what each occupies |
 | Per-drive filter | Chip row of mounted volumes; scanning or cleaning can be limited to one drive, and rows with nothing on that drive disappear |
-| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup`) and a permanent legend, so "caution" never means "unspecified" |
+| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan`) and a permanent legend, so "caution" never means "unspecified" |
 | Aged deletion | `temp` and `windows-temp` only remove files older than one day; files a running program still holds are skipped |
 | Space assessment | Walks the disk read-only and groups the result into Windows / installed software / your own files, plus the ten largest app-data folders. Any row opens its folder in Explorer — click, right click, or Enter |
 | Honest re-run | Re-running the assessment re-measures; a plain call still answers from the ten-minute cache |
@@ -74,6 +74,10 @@ Every path is built from this table — a caller selects an **id**, never a path
 | `agent-app-caches` | `Cache` / `Code Cache` / `GPUCache` under `%USERPROFILE%\.workbuddy\app` and `\.workbuddy-ai\app` | purge | caution | the sibling `cache` folder holds spilled conversation text and is never a target |
 | `rewind-snapshots` | `session-*` folders under `%USERPROFILE%\.dsh\rewind-snapshots` | aged, 30 days | caution | a recent session stays restorable |
 | `rotated-logs` | `*.old.log` and `*.log.N` files in the `logs` folders of the agent apps | aged, 3 days | safe | nothing reads a rotated file back |
+| `qoder-old-versions` | version folders under `%LOCALAPPDATA%\Programs\Qoder\.qoder-versions` other than the one the launcher names | purge | caution | the launcher's `state.ini` names the build it runs; an unreadable one means nothing is removed |
+| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` - left by an app with no shortcut, no uninstall entry and nothing written for over two years | purge | caution | all four signals must agree before the folder is offered |
+| `app-data-caches` | Chromium caches under `%LOCALAPPDATA%` for Electron, DingTalk, JianyingPro and the WeChat devtools | aged, 7 days | caution | an app that still runs rewrites its cache constantly, so only a week-old tree qualifies |
+| `office-update-cache` | `%LOCALAPPDATA%\Microsoft\Office\SolutionPackages` - update packages Office already applied | purge | caution | Office stages them before applying; nothing reads them back afterwards |
 
 `aged` targets skip anything modified within the retention window; `purge` targets remove every entry. Both keep the target directory itself and leave locked entries alone, counting them as skipped.
 
@@ -153,6 +157,8 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
   that holds a single bundle all resolve to *nothing to delete*. The newest member is never returned.
 - `editor-builds` drops a build only when `bin\code.cmd` exists and names a different build that is also on disk; `old_x` goes only while `x` is still beside it.
 - `database-backups` matches `.sqlite*.bak` by name only; the live `zotero.sqlite` is never a candidate.
+- `qoder-old-versions` reads the launcher's `state.ini` for the build it runs; a missing or unparsable file, or a named build that is not on disk, removes nothing.
+- `orphan-app-data` needs four independent signals to agree: no Start-menu shortcut, no uninstall entry, no folder under either `Program Files`, and no file written for two years. Any one missing and the folder is not offered.
 - The directory Windows refuses to let an unelevated process write (`SoftwareDistribution\Download`) is labelled `elevation` and excluded from "reclaimable now". `C:\Windows\Temp` is **not** one of them on a default ACL: it grants `BUILTIN\Users` create and delete, so only EBUSY on a live file stops a delete there, which the age limit covers.
 
 ### Install
@@ -189,7 +195,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 68 assertions, zero dependencies
+node smoke.mjs                       # 69 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -241,15 +247,15 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (411)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
-├─ lib/catalog.js  (969)  The 28 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1152)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1379)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1397)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              68 assertions, zero dependencies
+└─ smoke.mjs              69 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
@@ -261,7 +267,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 **dsh-disk-cleaner** 是 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）的磁盘空间插件。它做两件不同的事，并且刻意分开：
 
-1. **清理** —— 二十八个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留、各应用的缓存与日志、被淘汰的插件版本与已应用的更新包）。只有这些会被删除。
+1. **清理** —— 三十二个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留、各应用的缓存与日志、被淘汰的插件版本与已应用的更新包）。只有这些会被删除。
 2. **评估** —— 所有本插件**不会**删的东西（已装程序、WSL 虚拟磁盘、Windows 组件库、聊天软件数据、你自己的文件夹）。只测量、只列出，绝不删除。
 
 评估的最后是一份**处理方案**：同一批数字按「你要付出多少代价」排序，本插件做不到的步骤附上确切的 Windows 命令。
@@ -272,9 +278,9 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 | 功能 | 说明 |
 | --- | --- |
-| 扫描 | 并发测量全部二十八个目标，显示各自占用 |
+| 扫描 | 并发测量全部三十二个目标，显示各自占用 |
 | 按盘过滤 | 已挂载卷的胶囊按钮；扫描与清理都可限定单盘，该盘上为空的项会隐藏 |
-| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup`），图例常驻，所以「注意」永远不是「说不清」 |
+| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan`），图例常驻，所以「注意」永远不是「说不清」 |
 | 保留期删除 | `temp` 与 `windows-temp` 只删一天前的文件；被运行中程序占住的自动跳过 |
 | 空间评估 | 只读遍历磁盘，按 Windows 自身 / 已装软件 / 你自己的文件 分组，另列占用最大的十个应用数据目录。每一行都能打开所在目录——单击、右键或回车 |
 | 重新评估真的重测 | 「重新评估」会重新测量；普通调用仍然走十分钟缓存 |
@@ -319,6 +325,10 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | `agent-app-caches` | `%USERPROFILE%\.workbuddy\app` 与 `\.workbuddy-ai\app` 下的 `Cache` / `Code Cache` / `GPUCache` | 全清 | 注意 | 同级的 `cache` 目录存的是对话溢写内容，从不作为目标 |
 | `rewind-snapshots` | `%USERPROFILE%\.dsh\rewind-snapshots` 下的 `session-*` 目录 | 保留期 30 天 | 注意 | 最近的会话仍然可以回滚 |
 | `rotated-logs` | 各 agent 应用 `logs` 目录下的 `*.old.log` 与 `*.log.N` 文件 | 保留期 3 天 | 安全 | 轮转掉的日志不会被读回 |
+| `qoder-old-versions` | `%LOCALAPPDATA%\Programs\Qoder\.qoder-versions` 下不是启动器所指的那个版本目录 | 全清 | 注意 | 启动器 `state.ini` 写明它跑哪个版本；读不到就一个都不删 |
+| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` —— 没有快捷方式、没有卸载项、两年多没写过文件的程序留下的数据 | 全清 | 注意 | 四条证据必须同时成立才会被列为可删 |
+| `app-data-caches` | `%LOCALAPPDATA%` 下 Electron、钉钉、剪映、微信开发者工具的 Chromium 缓存 | 保留期 7 天 | 注意 | 还在跑的程序会不停改写缓存，所以只有一周没动过的才算 |
+| `office-update-cache` | `%LOCALAPPDATA%\Microsoft\Office\SolutionPackages` —— Office 已应用的更新暂存包 | 全清 | 注意 | Office 先暂存再应用，应用后没有东西会读回 |
 
 保留期方式会跳过保留期内修改过的文件；全清方式清掉全部条目。两者都保留目标目录本身，并把锁定或无权限的条目跳过计数。
 
@@ -397,6 +407,8 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
   `vscode-remote-wsl\stable` 下只有一个服务包，结果都是*没有可删项*。最新那一份永远不会被返回。
 - `editor-builds` 只有在 `bin\code.cmd` 存在且指向另一份确实在磁盘上的构建时才删；`old_x` 也只有在 `x` 仍在旁边时才删。
 - `database-backups` 只按名字匹配 `.sqlite*.bak`，正在用的 `zotero.sqlite` 永不成为候选。
+- `qoder-old-versions` 从启动器的 `state.ini` 读出它实际运行哪个版本；文件缺失、解析不出、或它指的版本不在磁盘上，一律一个都不删。
+- `orphan-app-data` 要求四条独立证据同时成立：开始菜单没有快捷方式、注册表没有卸载项、两个 `Program Files` 下都没有目录、两年内没有任何文件被写过。缺一条就不会列为可删。
 - 那个拒绝普通权限写入的 Windows 目录标为 `elevation`，并排除在「现在能回收」之外。
 
 ### 安装
@@ -437,7 +449,7 @@ git clone https://github.com/stallenlu/dsh-disk-cleaner
 ### 开发
 
 ```bash
-node smoke.mjs                       # 68 条断言，零依赖
+node smoke.mjs                       # 69 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -489,15 +501,15 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (411)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
-├─ lib/catalog.js  (969)  28 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1152)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1379)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1397)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              68 条断言，零依赖
+└─ smoke.mjs              69 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
