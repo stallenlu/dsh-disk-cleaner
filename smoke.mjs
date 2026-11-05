@@ -264,6 +264,56 @@ check('every effect is labelled', applied.every((label) => typeof label === 'str
 const ids = [...catalog.matchAll(/^\s{4}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
 check('catalog has the documented 32 targets', ids.length === 32, `got ${ids.length}`);
 check('every catalog id has a client label', ids.every((id) => zhKeys.includes(`target_${id}`) && enKeys.includes(`target_${id}`)));
+const groupMap = catalog.slice(catalog.indexOf('const GROUP_OF'), catalog.indexOf('const CATALOG = ['));
+const grouped = new Set([...groupMap.matchAll(/^\s+'?([a-z-]+)'?: '[a-z]+',$/gm)].map((m) => m[1]));
+check('every catalog id is filed under a group', ids.every((id) => grouped.has(id)), `missing: ${ids.filter((id) => !grouped.has(id)).join(',')}`);
+const groupKeys = [...new Set([...groupMap.matchAll(/: '([a-z]+)',$/gm)].map((m) => m[1]))];
+check('every group has a label in both languages', groupKeys.length > 1 && groupKeys.every((key) => zhKeys.includes(`group_${key}`) && enKeys.includes(`group_${key}`)), `groups: ${groupKeys.join(',')}`);
+{
+  // Run the real grouping function out of the bundle rather than assert on its text.
+  const start = source.indexOf('const GROUP_ORDER =');
+  const end = source.indexOf('function riskWhy', start);
+  const groupRows = new Function(`${source.slice(start, end)}; return groupRows;`)();
+  const folded = groupRows([
+    { id: 'a', group: 'dev', bytes: 10 },
+    { id: 'b', group: 'dev', bytes: 5 },
+    { id: 'c', group: 'system', bytes: 0 },
+    { id: 'd', group: 'nonsense', bytes: 1 },
+  ]);
+  check('grouping keeps a fixed order, not a size order', folded.map((g) => g.key).join(',') === 'system,dev,other');
+  check('grouping totals each section', folded.find((g) => g.key === 'dev').bytes === 15);
+  check('an unknown group falls into other', folded.find((g) => g.key === 'other').rows[0].id === 'd');
+  check('an empty section is the one that starts folded', folded.filter((g) => g.bytes === 0).map((g) => g.key).join(',') === 'system');
+}
+{
+  // Fold/unfold driven by the real helpers, on real section objects. The regression this
+  // guards against was the head handing `toggleGroup` a bare key, so nothing was stored.
+  const start = source.indexOf('const GROUP_ORDER =');
+  const end = source.indexOf('function riskWhy', start);
+  const groupRows = new Function(`${source.slice(start, end)}; return groupRows;`)();
+  const live = () => groupRows([
+    { id: 'a', group: 'system', bytes: 200 },
+    { id: 'b', group: 'dev', bytes: 0 },
+  ]);
+  const isFolded = (t, section) =>
+    typeof t[section.key] === 'boolean' ? t[section.key] : section.bytes === 0;
+  const click = (t, section) => ({ ...t, [section.key]: !isFolded(t, section) });
+
+  let toggled = {};
+  let section = live().find((g) => g.key === 'system');
+  check('a group with bytes starts open', isFolded(toggled, section) === false);
+  toggled = click(toggled, section);
+  check('one click folds the group it belongs to', isFolded(toggled, section) === true);
+  check('the fold map holds only the group that was clicked', Object.keys(toggled).join(',') === 'system');
+  toggled = click(toggled, section);
+  check('a second click unfolds it again', isFolded(toggled, section) === false);
+}
+check(
+  'a group head toggles its own section',
+  /onClick: \(\) => toggleGroup\(section\)/.test(source) && !/toggleGroup\(section\.key\)/.test(source),
+);
+check('select all skips the folded sections', /visibleRows\(\)\.filter/.test(source));
+check('the panel folds the group list', /function groupRows\(rows\)/.test(source) && /aria-expanded/.test(source) && /section\.bytes === 0/.test(source));
 check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation', 'why_pending-update', 'why_rollback', 'why_superseded', 'why_history', 'why_duplicate', 'why_database-backup', 'why_orphan'].every((k) => zhKeys.includes(k) && enKeys.includes(k)));
 const areaIds = [...auditSrc.matchAll(/^\s{6}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
 check('every assessment area has a translated label and reason', areaIds.length > 0 && areaIds.every((id) => zhKeys.includes(`area_${id}`) && zhKeys.includes(`area_${id}_why`) && enKeys.includes(`area_${id}`) && enKeys.includes(`area_${id}_why`)), `areas: ${areaIds.join(',')}`);

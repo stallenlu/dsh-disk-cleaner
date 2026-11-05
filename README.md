@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.5.0` |
+| **version** | `1.6.0` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -36,6 +36,7 @@ Both the panel and the agent reach the *same* operations: the cleaning logic liv
 | Plan | Nine possible steps, ordered from zero-cost to your-decision-only; the steps the plugin can run have a button, the rest have a copyable command |
 | Entry placement | Sidebar icon, settings section, or both (default) — switched from the plugin's own config card or the panel's ⚙ button |
 | Behaviour settings | What is preselected after a scan, and whether deleting asks first |
+| Grouped list | The thirty-two targets are filed under seven headings — system temp, developer tools, browser caches, app caches, leftover updaters, backups, orphaned data. A section whose targets all read 0 B starts folded, so the list opens with only what there is to clean |
 | Panel memory | Scan results, the selection and the assessment survive switching to another panel and back |
 | Agent tool | `disk_cleaner` exposes the same five actions to the model, in readable prose |
 | Bilingual | Follows the host locale service; zh and en dictionaries ship together |
@@ -195,7 +196,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 69 assertions, zero dependencies
+node smoke.mjs                       # 82 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -222,6 +223,7 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 | "Keep only the newest of a group" fails closed | Throwaway fixture tree: a same-hash duplicate collapses to the newest, a folder with no metadata is left alone, a different hash is kept, the live database survives (9/9) |
 | Old editor builds need a launcher that proves which one runs | Throwaway fixture tree: a build the launcher does not name goes, no launcher deletes nothing, a launcher naming a missing build deletes nothing, a lone build stays, `old_x` goes only while `x` exists (7/7) |
 | A dry run reports what a real run frees | The 30-day rewind window reports 263 KB not 283 MB, and scan matches the dry run |
+| Grouping and folding | The real `groupRows` runs out of the bundle against a mixed list: fixed order, per-section totals, an unknown group lands in "other", an empty section is the folded one. A click on a section head folds that section and only that one, and a folded section's rows drop out of bulk select |
 | Visual layout | Checked by hand in the running Web UI. No browser automation here, so this one is a human check, not a test. |
 
 ### Implementation notes
@@ -247,15 +249,15 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (411)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
-├─ lib/catalog.js  (1152)  The 32 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1192)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1397)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1492)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              69 assertions, zero dependencies
+└─ smoke.mjs              82 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
@@ -287,6 +289,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | 处理方案 | 九种可能步骤，从零风险到只能你决定；本插件能执行的带按钮，其余给可复制的命令 |
 | 入口位置 | 侧边栏图标、设置页分区、或两者都要（默认）——在插件自己的配置卡或面板 ⚙ 里切换 |
 | 行为设置 | 扫描后默认勾选什么、删除前是否确认 |
+| 分类折叠 | 三十二个目标归到七个标题下（系统临时、开发工具、浏览器缓存、应用缓存、升级残留、备份快照、已卸载残留）。整类都是 0 字节的默认收起来，所以打开面板先看到的只有真能清的那些 |
 | 面板记忆 | 扫描结果、勾选、评估结果在切走再回来时都还在 |
 | Agent 工具 | `disk_cleaner` 把同样的五个动作以可读文本交给模型 |
 | 双语 | 跟随宿主语言服务，zh / en 字典一起发布 |
@@ -449,7 +452,7 @@ git clone https://github.com/stallenlu/dsh-disk-cleaner
 ### 开发
 
 ```bash
-node smoke.mjs                       # 69 条断言，零依赖
+node smoke.mjs                       # 82 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -476,6 +479,7 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 | 「只留最新一份」一律选保守一侧 | 一次性 fixture 目录：同哈希的重复项收敛到最新、无元数据的目录不动、不同哈希保留、正在用的数据库完好（9/9） |
 | 旧版编辑器构建要有启动器作证才删 | 一次性 fixture 目录：启动器未指向的构建会删、没有启动器一律不删、启动器指向的构建不在磁盘上也不删、只有一份构建时不删、`old_x` 只在 `x` 仍在时删（7/7） |
 | 预演报告的字节数等于真删能释放的字节数 | 30 天的回滚窗口报 263 KB 而不是 283 MB，且扫描结果与预演一致 |
+| 分类与折叠 | 从 bundle 里取出真正的 `groupRows` 跑一组混合数据：顺序固定、按类合计、未知类别落到「其他」、空的类别是收起来的那个。点某一类的标题只折叠这一类，折叠里的行不参与批量选择 |
 | 视觉排版 | 在运行中的 Web UI 里手工确认过。本环境没有浏览器自动化，所以这条是人眼检查，不是测试。 |
 
 ### 实现要点
@@ -501,15 +505,15 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (411)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
-├─ lib/catalog.js  (1152)  32 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1192)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1397)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1492)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              69 条断言，零依赖
+└─ smoke.mjs              82 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
