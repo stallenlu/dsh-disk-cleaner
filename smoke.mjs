@@ -260,6 +260,8 @@ check(
 check('tool needs no id for overview', JSON.stringify(definition.parameters.required) === JSON.stringify(['action']));
 check('tool description warns audit is read-only', /read-only: it never removes anything/.test(definition.description));
 check('every effect is labelled', applied.every((label) => typeof label === 'string' && label.startsWith('dsh-disk-cleaner:')));
+check('tool output schema matches its string reply', definition.output.schema.type === 'string' && typeof (await definition.execute({ action: 'overview' })) === 'string');
+check('the read-only agent clean keeps the audit cache in sync', /if \(!dryRun\) invalidateAudit\(\);[\s\S]*const freed = results\.reduce/.test(index));
 
 const ids = [...catalog.matchAll(/^\s{4}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
 check('catalog has the documented 32 targets', ids.length === 32, `got ${ids.length}`);
