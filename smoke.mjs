@@ -262,6 +262,9 @@ check('tool description warns audit is read-only', /read-only: it never removes 
 check('every effect is labelled', applied.every((label) => typeof label === 'string' && label.startsWith('dsh-disk-cleaner:')));
 check('tool output schema matches its string reply', definition.output.schema.type === 'string' && typeof (await definition.execute({ action: 'overview' })) === 'string');
 check('the read-only agent clean keeps the audit cache in sync', /if \(!dryRun\) invalidateAudit\(\);[\s\S]*const freed = results\.reduce/.test(index));
+check('orphan target descriptions state the real 30-day rule, not four signals / two years',
+  /30 days/.test(catalog) && /30 days/.test(index) && /QQGuild data folder/.test(source) &&
+  !/four independent signals|over two years|no Start-menu shortcut|two years/.test(catalog + index + source));
 
 const ids = [...catalog.matchAll(/^\s{4}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
 check('catalog has the documented 32 targets', ids.length === 32, `got ${ids.length}`);

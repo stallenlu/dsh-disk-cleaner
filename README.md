@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.1` |
+| **version** | `1.6.2` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -76,7 +76,7 @@ Every path is built from this table — a caller selects an **id**, never a path
 | `rewind-snapshots` | `session-*` folders under `%USERPROFILE%\.dsh\rewind-snapshots` | aged, 30 days | caution | a recent session stays restorable |
 | `rotated-logs` | `*.old.log` and `*.log.N` files in the `logs` folders of the agent apps | aged, 3 days | safe | nothing reads a rotated file back |
 | `qoder-old-versions` | version folders under `%LOCALAPPDATA%\Programs\Qoder\.qoder-versions` other than the one the launcher names | purge | caution | the launcher's `state.ini` names the build it runs; an unreadable one means nothing is removed |
-| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` - left by an app with no shortcut, no uninstall entry and nothing written for over two years | purge | caution | all four signals must agree before the folder is offered |
+| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` - the QQGuild data folder | purge | caution | the whole folder is offered for deletion once no file in it has been written for 30 days |
 | `app-data-caches` | Chromium caches under `%LOCALAPPDATA%` for Electron, DingTalk, JianyingPro and the WeChat devtools | aged, 7 days | caution | an app that still runs rewrites its cache constantly, so only a week-old tree qualifies |
 | `office-update-cache` | `%LOCALAPPDATA%\Microsoft\Office\SolutionPackages` - update packages Office already applied | purge | caution | Office stages them before applying; nothing reads them back afterwards |
 
@@ -159,23 +159,23 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 - `editor-builds` drops a build only when `bin\code.cmd` exists and names a different build that is also on disk; `old_x` goes only while `x` is still beside it.
 - `database-backups` matches `.sqlite*.bak` by name only; the live `zotero.sqlite` is never a candidate.
 - `qoder-old-versions` reads the launcher's `state.ini` for the build it runs; a missing or unparsable file, or a named build that is not on disk, removes nothing.
-- `orphan-app-data` needs four independent signals to agree: no Start-menu shortcut, no uninstall entry, no folder under either `Program Files`, and no file written for two years. Any one missing and the folder is not offered.
+- `orphan-app-data` is offered when the QQGuild folder exists and no file in it has been written in the last 30 days; the whole folder is then a full-delete target. It does not check shortcuts, uninstall entries, or Program Files.
 - The directory Windows refuses to let an unelevated process write (`SoftwareDistribution\Download`) is labelled `elevation` and excluded from "reclaimable now". `C:\Windows\Temp` is **not** one of them on a default ACL: it grants `BUILTIN\Users` create and delete, so only EBUSY on a live file stops a delete there, which the age limit covers.
 
 ### Install
 
 A catalog entry has been submitted to the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) list, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), pending review) — once it merges, search **dsh-disk-cleaner** there and install it in one click. Until then, use a direct install below.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.1`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.2`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.1/dsh-disk-cleaner-1.6.1.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.2/dsh-disk-cleaner-1.6.2.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.1"
+    "dsh-disk-cleaner": "^1.6.2"
   },
   "dsh": {
     "profile": {
@@ -204,7 +204,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 84 assertions, zero dependencies
+node smoke.mjs                       # 85 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -267,13 +267,14 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              84 assertions, zero dependencies
+└─ smoke.mjs              85 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
 
 ### What's new
 
+- **1.6.2** — Documentation only: the README, the in-source comment, the panel's zh/en explanations and the tool's note legend now describe `orphan-app-data` as it actually behaves (the QQGuild folder is offered for full deletion once no file in it has been written for 30 days), instead of claiming four independent signals and a two-year idle period. No behaviour change; the refreshed README ships in the npm package and the [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) tarball.
 - **1.6.1** — Fixed the `disk_cleaner` agent tool: `output.schema` now declares `type: 'string'`, matching the text `execute()` returns (previously every call was rejected by the host's output validator with `tool "disk_cleaner" returned invalid output: "value" must be an object`). A real delete through the agent tool now invalidates the assessment cache, the same way the panel's HTTP route does. Two regression assertions added; a prebuilt tarball ships on the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1).
 - **1.6.0** — The 32 targets are grouped under seven foldable headings.
 
@@ -344,7 +345,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | `rewind-snapshots` | `%USERPROFILE%\.dsh\rewind-snapshots` 下的 `session-*` 目录 | 保留期 30 天 | 注意 | 最近的会话仍然可以回滚 |
 | `rotated-logs` | 各 agent 应用 `logs` 目录下的 `*.old.log` 与 `*.log.N` 文件 | 保留期 3 天 | 安全 | 轮转掉的日志不会被读回 |
 | `qoder-old-versions` | `%LOCALAPPDATA%\Programs\Qoder\.qoder-versions` 下不是启动器所指的那个版本目录 | 全清 | 注意 | 启动器 `state.ini` 写明它跑哪个版本；读不到就一个都不删 |
-| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` —— 没有快捷方式、没有卸载项、两年多没写过文件的程序留下的数据 | 全清 | 注意 | 四条证据必须同时成立才会被列为可删 |
+| `orphan-app-data` | `%LOCALAPPDATA%\Tencent\QQGuild` —— QQ 频道数据目录 | 全清 | 注意 | 目录内 30 天没有任何文件写入时，整个目录会被列为全清目标 |
 | `app-data-caches` | `%LOCALAPPDATA%` 下 Electron、钉钉、剪映、微信开发者工具的 Chromium 缓存 | 保留期 7 天 | 注意 | 还在跑的程序会不停改写缓存，所以只有一周没动过的才算 |
 | `office-update-cache` | `%LOCALAPPDATA%\Microsoft\Office\SolutionPackages` —— Office 已应用的更新暂存包 | 全清 | 注意 | Office 先暂存再应用，应用后没有东西会读回 |
 
@@ -426,23 +427,23 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 - `editor-builds` 只有在 `bin\code.cmd` 存在且指向另一份确实在磁盘上的构建时才删；`old_x` 也只有在 `x` 仍在旁边时才删。
 - `database-backups` 只按名字匹配 `.sqlite*.bak`，正在用的 `zotero.sqlite` 永不成为候选。
 - `qoder-old-versions` 从启动器的 `state.ini` 读出它实际运行哪个版本；文件缺失、解析不出、或它指的版本不在磁盘上，一律一个都不删。
-- `orphan-app-data` 要求四条独立证据同时成立：开始菜单没有快捷方式、注册表没有卸载项、两个 `Program Files` 下都没有目录、两年内没有任何文件被写过。缺一条就不会列为可删。
+- `orphan-app-data` 的判据只有一条：QQGuild 目录存在，且目录内 30 天内没有任何文件被写入过，此时整个目录被列为全清目标。它不检查快捷方式、卸载项或 Program Files。
 - 那个拒绝普通权限写入的 Windows 目录标为 `elevation`，并排除在「现在能回收」之外。
 
 ### 安装
 
 已向精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 提交收录，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，审核中）——合并后即可在 dshmarket 里搜索 **dsh-disk-cleaner** 一键安装。在那之前，用下面任一种直接安装方式。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.1`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.2`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.1/dsh-disk-cleaner-1.6.1.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.2/dsh-disk-cleaner-1.6.2.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -450,7 +451,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.1"
+    "dsh-disk-cleaner": "^1.6.2"
   },
   "dsh": {
     "profile": {
@@ -471,7 +472,7 @@ bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 p
 ### 开发
 
 ```bash
-node smoke.mjs                       # 84 条断言，零依赖
+node smoke.mjs                       # 85 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -534,13 +535,14 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              84 条断言，零依赖
+└─ smoke.mjs              85 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
 
 ### 更新记录
 
+- **1.6.2** — 仅文档修正：README、源码注释、面板中英文说明和工具里的注意码释义，现在都按真实行为描述 `orphan-app-data`（QQGuild 目录内 30 天没有文件写入时会被整目录列为可全清），不再声称「四条独立证据 / 两年未写」。行为不变；更新后的 README 也随 npm 包与 [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) 的 tarball 一起发布。
 - **1.6.1** — 修复了 `disk_cleaner` agent 工具：`output.schema` 现在声明 `type: 'string'`，与 `execute()` 返回的文本一致（此前每次调用都被宿主的输出校验器拒绝，报 `tool "disk_cleaner" returned invalid output: "value" must be an object`）。经由 agent 工具真删后也会让评估缓存失效，与面板的 HTTP 路径一致。新增两条回归断言；[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 附带预构建 tarball。
 - **1.6.0** — 32 个目标按七个可折叠分组归类。
 
