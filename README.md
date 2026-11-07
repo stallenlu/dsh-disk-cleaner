@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.0` |
+| **version** | `1.6.1` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -164,10 +164,18 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 ### Install
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner):
+A catalog entry has been submitted to the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) list, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), pending review) — once it merges, search **dsh-disk-cleaner** there and install it in one click. Until then, use a direct install below.
+
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.1`:
 
 ```bash
 npm i dsh-disk-cleaner
+```
+
+A prebuilt tarball is attached to the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1); installing from it skips DSH's build-approval step:
+
+```bash
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.1/dsh-disk-cleaner-1.6.1.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -175,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.0.0"
+    "dsh-disk-cleaner": "^1.6.1"
   },
   "dsh": {
     "profile": {
@@ -196,7 +204,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 82 assertions, zero dependencies
+node smoke.mjs                       # 84 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -225,6 +233,8 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 | A dry run reports what a real run frees | The 30-day rewind window reports 263 KB not 283 MB, and scan matches the dry run |
 | Grouping and folding | The real `groupRows` runs out of the bundle against a mixed list: fixed order, per-section totals, an unknown group lands in "other", an empty section is the folded one. A click on a section head folds that section and only that one, and a folded section's rows drop out of bulk select |
 | Visual layout | Checked by hand in the running Web UI. No browser automation here, so this one is a human check, not a test. |
+| Agent tool returns a string matching its output schema | `node smoke.mjs` regression assertion (the 1.6.1 fix) |
+| A real agent-tool delete invalidates the assessment cache | `node smoke.mjs` regression assertion (the 1.6.1 fix) |
 
 ### Implementation notes
 
@@ -248,19 +258,24 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (411)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
+├─ lib/index.js    (431)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
 ├─ lib/catalog.js  (1192)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1492)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1493)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              82 assertions, zero dependencies
+└─ smoke.mjs              84 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
+
+### What's new
+
+- **1.6.1** — Fixed the `disk_cleaner` agent tool: `output.schema` now declares `type: 'string'`, matching the text `execute()` returns (previously every call was rejected by the host's output validator with `tool "disk_cleaner" returned invalid output: "value" must be an object`). A real delete through the agent tool now invalidates the assessment cache, the same way the panel's HTTP route does. Two regression assertions added; a prebuilt tarball ships on the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1).
+- **1.6.0** — The 32 targets are grouped under seven foldable headings.
 
 ---
 
@@ -416,10 +431,18 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 ### 安装
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)。
+已向精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 提交收录，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，审核中）——合并后即可在 dshmarket 里搜索 **dsh-disk-cleaner** 一键安装。在那之前，用下面任一种直接安装方式。
+
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.1`。
 
 ```bash
 npm i dsh-disk-cleaner
+```
+
+[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+
+```bash
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.1/dsh-disk-cleaner-1.6.1.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -427,7 +450,7 @@ npm i dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.0.0"
+    "dsh-disk-cleaner": "^1.6.1"
   },
   "dsh": {
     "profile": {
@@ -445,14 +468,10 @@ git clone https://github.com/stallenlu/dsh-disk-cleaner
 
 bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 patch。`link:` 依赖是符号链接，所以改 **client** 刷新页面即生效，改 **host**（`lib/index.js`）需要重新启用该 bundle 或重启 DSH。从 npm 装则是相反的一面：要升级就改版本号。
 
-```bash
-git clone https://github.com/stallenlu/dsh-disk-cleaner
-```
-
 ### 开发
 
 ```bash
-node smoke.mjs                       # 82 条断言，零依赖
+node smoke.mjs                       # 84 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -481,6 +500,8 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 | 预演报告的字节数等于真删能释放的字节数 | 30 天的回滚窗口报 263 KB 而不是 283 MB，且扫描结果与预演一致 |
 | 分类与折叠 | 从 bundle 里取出真正的 `groupRows` 跑一组混合数据：顺序固定、按类合计、未知类别落到「其他」、空的类别是收起来的那个。点某一类的标题只折叠这一类，折叠里的行不参与批量选择 |
 | 视觉排版 | 在运行中的 Web UI 里手工确认过。本环境没有浏览器自动化，所以这条是人眼检查，不是测试。 |
+| agent 工具返回字符串且与 output.schema 一致 | `node smoke.mjs` 回归断言（1.6.1 修复） |
+| agent 工具真删后评估缓存失效 | `node smoke.mjs` 回归断言（1.6.1 修复） |
 
 ### 实现要点
 
@@ -504,19 +525,24 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (411)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
+├─ lib/index.js    (431)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
 ├─ lib/catalog.js  (1192)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1492)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1493)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              82 条断言，零依赖
+└─ smoke.mjs              84 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
+
+### 更新记录
+
+- **1.6.1** — 修复了 `disk_cleaner` agent 工具：`output.schema` 现在声明 `type: 'string'`，与 `execute()` 返回的文本一致（此前每次调用都被宿主的输出校验器拒绝，报 `tool "disk_cleaner" returned invalid output: "value" must be an object`）。经由 agent 工具真删后也会让评估缓存失效，与面板的 HTTP 路径一致。新增两条回归断言；[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 附带预构建 tarball。
+- **1.6.0** — 32 个目标按七个可折叠分组归类。
 
 ## License
 
