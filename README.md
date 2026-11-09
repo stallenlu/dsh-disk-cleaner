@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.2` |
+| **version** | `1.6.3` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -16,7 +16,7 @@
 
 **dsh-disk-cleaner** is a disk-space plugin for [DeepSeek Harness](https://github.com/deepseek-ai) (DSH). It does two different jobs, and keeps them apart on purpose:
 
-1. **Clean** — thirty-two known-safe locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers, per-app caches and logs, superseded plugin versions and applied update packages). Only these are ever deleted.
+1. **Clean** — thirty-two known locations (temp folders, package manager stores, browser caches, crash dumps, the Recycle Bin, leftover update installers, per-app caches and logs, superseded plugin versions and applied update packages). Only these are ever deleted, and the ones that cannot be rebuilt are never preselected.
 2. **Assess** — everything the plugin will *not* delete (installed programs, the WSL virtual disk, the Windows component store, chat-app data, your own folders). Measured and listed, never removed.
 
 The assessment ends with a **plan**: the same numbers ordered by what it costs you to act, with the exact Windows command for the steps the plugin cannot perform itself.
@@ -29,7 +29,7 @@ Both the panel and the agent reach the *same* operations: the cleaning logic liv
 | --- | --- |
 | Scan | Measures all thirty-two targets concurrently and shows what each occupies |
 | Per-drive filter | Chip row of mounted volumes; scanning or cleaning can be limited to one drive, and rows with nothing on that drive disappear |
-| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan`) and a permanent legend, so "caution" never means "unspecified" |
+| Risk labels | Every target is `safe` or `caution`, with a one-line reason (`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan` / `irreversible`) and a permanent legend, so "caution" never means "unspecified" |
 | Aged deletion | `temp` and `windows-temp` only remove files older than one day; files a running program still holds are skipped |
 | Space assessment | Walks the disk read-only and groups the result into Windows / installed software / your own files, plus the ten largest app-data folders. Any row opens its folder in Explorer — click, right click, or Enter |
 | Honest re-run | Re-running the assessment re-measures; a plain call still answers from the ten-minute cache |
@@ -58,7 +58,7 @@ Every path is built from this table — a caller selects an **id**, never a path
 | `edge-cache` | same set, Edge profiles | purge | caution | rebuilt; next open is slower |
 | `code-cache` | `%APPDATA%\Code\{Cache,CachedData,CachedExtensionVSIXs}` | purge | caution | rebuilt; next start is slower |
 | `windows-update` | `C:\Windows\SoftwareDistribution\Download` | purge | caution | needs elevation |
-| `recycle-bin` | `$Recycle.Bin\S-1-5-*` on every mounted volume | purge | safe | it is the Recycle Bin |
+| `recycle-bin` | `$Recycle.Bin\S-1-5-*` on every mounted volume | purge | caution | emptying it cannot be undone; never preselected |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | purge | caution | rebuilt |
 | `app-updaters` | `*-updater` folders under `%LOCALAPPDATA%` and `%APPDATA%` — the installers app updaters leave behind | aged, 3 days | caution | a download from the last three days may still be a pending update |
 | `app-caches` | named cache folders inside `%APPDATA%`: the WPS CEF cache, FTNN `cef_cache`, and the `Cache` / `Code Cache` / `CachedData` / `GPUCache` of Qoder, Trae, the DSH desktop app, PersonalCenter, the WeChat devtools and QQ PC Manager | purge | caution | CEF and Chromium caches rebuild on next start |
@@ -166,16 +166,16 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 A catalog entry has been submitted to the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) list, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), pending review) — once it merges, search **dsh-disk-cleaner** there and install it in one click. Until then, use a direct install below.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.2`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.3`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.3); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.2/dsh-disk-cleaner-1.6.2.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.3/dsh-disk-cleaner-1.6.3.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.2"
+    "dsh-disk-cleaner": "^1.6.3"
   },
   "dsh": {
     "profile": {
@@ -274,6 +274,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 ### What's new
 
+- **1.6.3** — Safety and honesty rather than new features. The Recycle Bin is no longer filed under `safe`: emptying it cannot be undone, so it is never preselected, never picked by "select all", and carries its own `irreversible` note instead of the generic "rebuilt; next start is slower". The confirm dialog now names each target and the total instead of asking a generic "delete these?". A target that names no environment root is bounded by the volume it sits on rather than skipping the boundary check. `measure` and `purge` now count entries in the same unit, and a walk that hits the 2,000,000-entry cap says so (`truncated`) instead of claiming exact totals. A directory removal refused for a reason other than "not empty" is counted as `blocked` instead of being swallowed, and a clean that left files behind reports a warning rather than a green success. The orphan target is named for what it actually measures (the QQGuild folder).
 - **1.6.2** — Documentation only: the README, the in-source comment, the panel's zh/en explanations and the tool's note legend now describe `orphan-app-data` as it actually behaves (the QQGuild folder is offered for full deletion once no file in it has been written for 30 days), instead of claiming four independent signals and a two-year idle period. No behaviour change; the refreshed README ships in the npm package and the [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) tarball.
 - **1.6.1** — Fixed the `disk_cleaner` agent tool: `output.schema` now declares `type: 'string'`, matching the text `execute()` returns (previously every call was rejected by the host's output validator with `tool "disk_cleaner" returned invalid output: "value" must be an object`). A real delete through the agent tool now invalidates the assessment cache, the same way the panel's HTTP route does. Two regression assertions added; a prebuilt tarball ships on the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1).
 - **1.6.0** — The 32 targets are grouped under seven foldable headings.
@@ -285,7 +286,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 **dsh-disk-cleaner** 是 [DeepSeek Harness](https://github.com/deepseek-ai)（DSH）的磁盘空间插件。它做两件不同的事，并且刻意分开：
 
-1. **清理** —— 三十二个已知安全的位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留、各应用的缓存与日志、被淘汰的插件版本与已应用的更新包）。只有这些会被删除。
+1. **清理** —— 三十二个已知位置（临时目录、包管理器存储、浏览器缓存、崩溃转储、回收站、更新安装包残留、各应用的缓存与日志、被淘汰的插件版本与已应用的更新包）。只有这些会被删除，其中无法重建的项目永远不会被预选。
 2. **评估** —— 所有本插件**不会**删的东西（已装程序、WSL 虚拟磁盘、Windows 组件库、聊天软件数据、你自己的文件夹）。只测量、只列出，绝不删除。
 
 评估的最后是一份**处理方案**：同一批数字按「你要付出多少代价」排序，本插件做不到的步骤附上确切的 Windows 命令。
@@ -298,7 +299,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | --- | --- |
 | 扫描 | 并发测量全部三十二个目标，显示各自占用 |
 | 按盘过滤 | 已挂载卷的胶囊按钮；扫描与清理都可限定单盘，该盘上为空的项会隐藏 |
-| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan`），图例常驻，所以「注意」永远不是「说不清」 |
+| 风险标注 | 每个目标都标 `安全` 或 `注意`，并给一行理由（`in-use` / `rebuild` / `elevation` / `pending-update` / `rollback` / `superseded` / `history` / `duplicate` / `database-backup` / `orphan` / `irreversible`），图例常驻，所以「注意」永远不是「说不清」 |
 | 保留期删除 | `temp` 与 `windows-temp` 只删一天前的文件；被运行中程序占住的自动跳过 |
 | 空间评估 | 只读遍历磁盘，按 Windows 自身 / 已装软件 / 你自己的文件 分组，另列占用最大的十个应用数据目录。每一行都能打开所在目录——单击、右键或回车 |
 | 重新评估真的重测 | 「重新评估」会重新测量；普通调用仍然走十分钟缓存 |
@@ -327,7 +328,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 | `edge-cache` | 同上，Edge 的配置目录 | 全清 | 注意 | 会重建，下次打开更慢 |
 | `code-cache` | `%APPDATA%\Code\{Cache,CachedData,CachedExtensionVSIXs}` | 全清 | 注意 | 会重建，下次启动更慢 |
 | `windows-update` | `C:\Windows\SoftwareDistribution\Download` | 全清 | 注意 | 需要管理员权限 |
-| `recycle-bin` | 各已挂载卷的 `$Recycle.Bin\S-1-5-*` | 全清 | 安全 | 就是回收站 |
+| `recycle-bin` | 各已挂载卷的 `$Recycle.Bin\S-1-5-*` | 全清 | 注意 | 清空不可恢复，永不被预选 |
 | `inet-cache` | `%LOCALAPPDATA%\Microsoft\Windows\INetCache` | 全清 | 注意 | 会重建 |
 | `app-updaters` | `%LOCALAPPDATA%` 与 `%APPDATA%` 下的 `*-updater` 目录——升级程序留下的安装包 | 保留期 3 天 | 注意 | 三天内的下载可能还是待安装的更新 |
 | `app-caches` | `%APPDATA%` 里点名列出的缓存目录：WPS 的 CEF 缓存、FTNN 的 `cef_cache`，以及 Qoder、Trae、DSH 桌面端、PersonalCenter、微信开发者工具、腾讯电脑管家的 `Cache` / `Code Cache` / `CachedData` / `GPUCache` | 全清 | 注意 | CEF 与 Chromium 缓存会在下次启动时重建 |
@@ -434,16 +435,16 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 已向精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 提交收录，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，审核中）——合并后即可在 dshmarket 里搜索 **dsh-disk-cleaner** 一键安装。在那之前，用下面任一种直接安装方式。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.2`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.3`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.3) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.2/dsh-disk-cleaner-1.6.2.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.3/dsh-disk-cleaner-1.6.3.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -451,7 +452,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.2"
+    "dsh-disk-cleaner": "^1.6.3"
   },
   "dsh": {
     "profile": {
@@ -542,6 +543,7 @@ Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模�
 
 ### 更新记录
 
+- **1.6.3** — 改的是安全与诚实，不是新功能。回收站不再归入「安全」：清空不可恢复，所以它永不被预选、不被「全选」勾中，并单独带 `irreversible` 注意码，而不是笼统的「重建，下次启动慢一些」。确认框现在逐条列出目标名与合计字节，不再只问一句「删除选中缓存目录里的文件？」。没有声明根目录的目标，改为按所在卷做边界校验，而不是直接跳过检查。`measure` 与 `purge` 现在用同一单位计数，走查触到 200 万条上限时会如实标 `truncated`，不再声称精确总量。目录删除失败若原因不是「非空」会计入 `blocked`（此前被静默吞掉），清理后仍有残留的目标会报警告而不是绿色成功。orphan 目标按它实际测量的东西重新命名（QQ 频道目录）。
 - **1.6.2** — 仅文档修正：README、源码注释、面板中英文说明和工具里的注意码释义，现在都按真实行为描述 `orphan-app-data`（QQGuild 目录内 30 天没有文件写入时会被整目录列为可全清），不再声称「四条独立证据 / 两年未写」。行为不变；更新后的 README 也随 npm 包与 [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) 的 tarball 一起发布。
 - **1.6.1** — 修复了 `disk_cleaner` agent 工具：`output.schema` 现在声明 `type: 'string'`，与 `execute()` 返回的文本一致（此前每次调用都被宿主的输出校验器拒绝，报 `tool "disk_cleaner" returned invalid output: "value" must be an object`）。经由 agent 工具真删后也会让评估缓存失效，与面板的 HTTP 路径一致。新增两条回归断言；[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 附带预构建 tarball。
 - **1.6.0** — 32 个目标按七个可折叠分组归类。

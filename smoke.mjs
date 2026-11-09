@@ -350,5 +350,66 @@ check('audit imports measuring only, never the deleter', Boolean(auditImport) &&
 const pkg = JSON.parse(read('package.json'));
 check('package lists every runtime file', ['lib/index.js', 'lib/client.js', 'lib/catalog.js', 'lib/audit.js', 'lib/plan.js'].every((f) => pkg.files.includes(f)));
 
+// --- 1.6.3: the delete-safety regressions ------------------------------------------------
+check(
+  'the recycle bin is never filed as a safe, preselected target',
+  /id: 'recycle-bin',[\s\S]{0,200}?risk: 'caution'/.test(catalog) &&
+    !/id: 'recycle-bin',[\s\S]{0,200}?risk: 'safe'/.test(catalog) &&
+    /const IRREVERSIBLE = new Set\(\['recycle-bin'\]\)/.test(source),
+  'emptying the recycle bin cannot be undone, so it must not sit under "safe" or in "select all"',
+);
+check(
+  'no target skips the boundary check by naming no root',
+  /const roots = declared\.length > 0 \? declared : \[path\.parse/.test(catalog) &&
+    catalog
+      .split(/\n  \{\n/)
+      .filter((block) => /roots: \[\]/.test(block))
+      .every((block) => /id: 'recycle-bin'/.test(block)),
+  'an empty roots list used to disable `within` entirely; only the recycle bin, which spans volumes, may declare none',
+);
+check(
+  'preselection and select-all both exclude irreversible targets',
+  /!IRREVERSIBLE\.has\(row\.id\)/.test(source) &&
+    (source.match(/!IRREVERSIBLE\.has\(row\.id\)/g) ?? []).length >= 2,
+);
+check(
+  'every confirm box names the targets and the total',
+  (source.match(/t\('cleanConfirmList'\)/g) ?? []).length === 2 &&
+    (source.match(/t\('cleanConfirmIrreversible'\)/g) ?? []).length === 2 &&
+    !/window\.confirm\(t\('cleanConfirm'\)\)/.test(source),
+  'a bare "delete these?" is not a confirmation, and the plan step is still a delete',
+);
+check(
+  'a clean that left files behind is not reported as a green success',
+  /const kind = failed > 0 \? 'warn' : 'ok'/.test(source) && /\.dsc-notice\.dsc-warn/.test(source),
+);
+check(
+  'a truncated walk says so instead of claiming exact totals',
+  catalog.includes('truncated: stack.length > 0') &&
+    catalog.includes('truncated = truncated || size.truncated === true') &&
+    index.includes('truncated: target.truncated === true') &&
+    source.includes("t('truncatedHint')"),
+);
+check(
+  'measure and purge count entries in the same unit',
+  /let seen = 0;\n  while \(stack\.length > 0 && seen < MAX_ENTRIES\)/.test(catalog) && /seen \+= 1;/.test(catalog),
+);
+check(
+  'a refused directory removal is counted, a legitimately full one is not',
+  /code === 'ENOTEMPTY' \|\| code === 'EEXIST'/.test(catalog) && /blocked \+= 1/.test(catalog),
+);
+check(
+  'the dry run applies the same too-broad guard as the real run',
+  (catalog.match(/if \(tooBroad\(abs\)\) \{/g) ?? []).length === 2,
+  'an estimate that skips the guard promises bytes the delete will refuse',
+);
+check(
+  'the orphan target is named for what it actually measures',
+  !/已卸载程序的残留数据|Leftover data from an uninstalled app|已卸载程序残留|Data from uninstalled apps/.test(source) &&
+    source.includes('QQ') ,
+  'it only ever measures the QQGuild folder',
+);
+check('the version badge and package agree', pkg.version === '1.6.3');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
