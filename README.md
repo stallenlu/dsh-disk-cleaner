@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.3` |
+| **version** | `1.6.4` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -166,16 +166,16 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 A catalog entry has been submitted to the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) list, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), pending review) — once it merges, search **dsh-disk-cleaner** there and install it in one click. Until then, use a direct install below.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.3`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.4`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.3); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.4); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.3/dsh-disk-cleaner-1.6.3.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.4/dsh-disk-cleaner-1.6.4.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.3"
+    "dsh-disk-cleaner": "^1.6.4"
   },
   "dsh": {
     "profile": {
@@ -204,7 +204,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 85 assertions, zero dependencies
+node smoke.mjs                       # 98 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -258,22 +258,23 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (431)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
-├─ lib/catalog.js  (1192)  The 32 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/index.js    (434)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
+├─ lib/catalog.js  (1222)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1493)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1597)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              85 assertions, zero dependencies
+└─ smoke.mjs              98 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
 
 ### What's new
 
+- **1.6.4** — The panel now paints itself with [dsh-design-baseline](https://github.com/stallenlu/dsh-design-baseline): the stylesheet is inlined into the client bundle, the panel root carries `dsb-root`, and every colour resolves through a `--dsb-*` token instead of a host `--dsw-alias-*` name. That means it follows the host's light and dark themes (including `color-scheme`, so native `<select>` menus and scrollbars match), and colour is spent only on data that has state — the primary button and the active chip are now inverted neutrals rather than brand blue. No behaviour changes.
 - **1.6.3** — Safety and honesty rather than new features. The Recycle Bin is no longer filed under `safe`: emptying it cannot be undone, so it is never preselected, never picked by "select all", and carries its own `irreversible` note instead of the generic "rebuilt; next start is slower". The confirm dialog now names each target and the total instead of asking a generic "delete these?". A target that names no environment root is bounded by the volume it sits on rather than skipping the boundary check. `measure` and `purge` now count entries in the same unit, and a walk that hits the 2,000,000-entry cap says so (`truncated`) instead of claiming exact totals. A directory removal refused for a reason other than "not empty" is counted as `blocked` instead of being swallowed, and a clean that left files behind reports a warning rather than a green success. The orphan target is named for what it actually measures (the QQGuild folder).
 - **1.6.2** — Documentation only: the README, the in-source comment, the panel's zh/en explanations and the tool's note legend now describe `orphan-app-data` as it actually behaves (the QQGuild folder is offered for full deletion once no file in it has been written for 30 days), instead of claiming four independent signals and a two-year idle period. No behaviour change; the refreshed README ships in the npm package and the [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) tarball.
 - **1.6.1** — Fixed the `disk_cleaner` agent tool: `output.schema` now declares `type: 'string'`, matching the text `execute()` returns (previously every call was rejected by the host's output validator with `tool "disk_cleaner" returned invalid output: "value" must be an object`). A real delete through the agent tool now invalidates the assessment cache, the same way the panel's HTTP route does. Two regression assertions added; a prebuilt tarball ships on the [v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1).
@@ -435,16 +436,16 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 已向精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 提交收录，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，审核中）——合并后即可在 dshmarket 里搜索 **dsh-disk-cleaner** 一键安装。在那之前，用下面任一种直接安装方式。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.3`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.4`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.3) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.3 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.4) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.3/dsh-disk-cleaner-1.6.3.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.4/dsh-disk-cleaner-1.6.4.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -452,7 +453,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.3"
+    "dsh-disk-cleaner": "^1.6.4"
   },
   "dsh": {
     "profile": {
@@ -473,7 +474,7 @@ bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 p
 ### 开发
 
 ```bash
-node smoke.mjs                       # 85 条断言，零依赖
+node smoke.mjs                       # 98 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -527,22 +528,23 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (431)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
-├─ lib/catalog.js  (1192)  32 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/index.js    (434)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
+├─ lib/catalog.js  (1222)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1493)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1597)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              85 条断言，零依赖
+└─ smoke.mjs              98 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
 
 ### 更新记录
 
+- **1.6.4** — 面板改用 [dsh-design-baseline](https://github.com/stallenlu/dsh-design-baseline) 上色：样式表内联进 client bundle，根节点带 `dsb-root`，所有颜色都走 `--dsb-*` 令牌而不是宿主的 `--dsw-alias-*` 名字。因此它跟随宿主的明暗主题（含 `color-scheme`，原生 `<select>` 弹层与滚动条也跟着变），并且颜色只花在有状态的数据上——主按钮与选中项改成中性反色，不再是品牌蓝。行为没有变化。
 - **1.6.3** — 改的是安全与诚实，不是新功能。回收站不再归入「安全」：清空不可恢复，所以它永不被预选、不被「全选」勾中，并单独带 `irreversible` 注意码，而不是笼统的「重建，下次启动慢一些」。确认框现在逐条列出目标名与合计字节，不再只问一句「删除选中缓存目录里的文件？」。没有声明根目录的目标，改为按所在卷做边界校验，而不是直接跳过检查。`measure` 与 `purge` 现在用同一单位计数，走查触到 200 万条上限时会如实标 `truncated`，不再声称精确总量。目录删除失败若原因不是「非空」会计入 `blocked`（此前被静默吞掉），清理后仍有残留的目标会报警告而不是绿色成功。orphan 目标按它实际测量的东西重新命名（QQ 频道目录）。
 - **1.6.2** — 仅文档修正：README、源码注释、面板中英文说明和工具里的注意码释义，现在都按真实行为描述 `orphan-app-data`（QQGuild 目录内 30 天没有文件写入时会被整目录列为可全清），不再声称「四条独立证据 / 两年未写」。行为不变；更新后的 README 也随 npm 包与 [v1.6.2 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.2) 的 tarball 一起发布。
 - **1.6.1** — 修复了 `disk_cleaner` agent 工具：`output.schema` 现在声明 `type: 'string'`，与 `execute()` 返回的文本一致（此前每次调用都被宿主的输出校验器拒绝，报 `tool "disk_cleaner" returned invalid output: "value" must be an object`）。经由 agent 工具真删后也会让评估缓存失效，与面板的 HTTP 路径一致。新增两条回归断言；[v1.6.1 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.1) 附带预构建 tarball。

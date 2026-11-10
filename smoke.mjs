@@ -51,6 +51,9 @@ const window = {
 
 const document = {
   head,
+  // injectBaseline() de-duplicates through querySelector; the throwaway DOM has no
+  // stylesheet registry, so it simply reports "not injected yet".
+  querySelector: () => null,
   createElement: () => ({ dataset: {}, setAttribute() {}, set textContent(v) {} }),
 };
 
@@ -409,7 +412,28 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.3');
+check('the version badge and package agree', pkg.version === '1.6.4');
+
+check(
+  'the panel carries dsh-design-baseline (full mode: css inlined, root tagged, tokens only)',
+  />>> dsh-design-baseline v/.test(source) &&
+    /const BASELINE_CSS = "/.test(source) &&
+    /const injectBaseline = /.test(source) &&
+    /className: 'dsc-root dsb-root'/.test(source) &&
+    /injectBaseline\(document, PANEL_ID\)/.test(source),
+  'baseline stylesheet, root class and injector must all be present',
+);
+
+check(
+  'no colour reaches for a raw host token outside the baseline block',
+  (() => {
+    const from = source.indexOf('// >>> dsh-design-baseline');
+    const to = source.indexOf('// <<< dsh-design-baseline');
+    if (from < 0 || to < from) return false;
+    return !/--dsw-alias-[a-z0-9-]+/.test(source.slice(0, from) + source.slice(to));
+  })(),
+  'panel css must go through --dsb-* so the host theme is followed',
+);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
