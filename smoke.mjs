@@ -412,7 +412,7 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.4');
+check('the version badge and package agree', pkg.version === '1.6.5');
 
 check(
   'the panel carries dsh-design-baseline (full mode: css inlined, root tagged, tokens only)',
