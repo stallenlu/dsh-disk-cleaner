@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.7` |
+| **version** | `1.6.8` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -166,16 +166,16 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 Listed in the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), merged): search **dsh-disk-cleaner** there and install it in one click. The direct installs below do the same thing by hand.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.7`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.8`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.7 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.7); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.8 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.8); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.7/dsh-disk-cleaner-1.6.7.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.8/dsh-disk-cleaner-1.6.8.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.7"
+    "dsh-disk-cleaner": "^1.6.8"
   },
   "dsh": {
     "profile": {
@@ -275,6 +275,7 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 ### What's new
 
+- **1.6.8** — Fixes the other half of the 1.6.7 story: the panel still answered "origin rejected" when the desktop window sent `Origin: http://localhost:<port>` while the request itself arrived at `127.0.0.1`, because the check compared those strings literally. The gate now decides on the **peer address** of the connection — something a remote page cannot influence — and only then looks at `Origin`: the app's own scheme, no `Origin` at all, or any loopback host name is accepted, everything else is still refused. An `https://evil.example` origin is rejected even from a loopback socket. The three assessment error paths (evaluate, reveal, run-a-plan-step) now go through the same translated-code path as the rest of the panel, so a Chinese user sees "请求来源不被接受" rather than the raw `origin rejected` string.
 - **1.6.7** — Fixes a regression 1.6.6 shipped: refusing every request without an `Origin` header locked the plugin's own panel out of its API ("请求来源不被接受"), because the desktop window posts from `dsh-app://app`, not from `http://127.0.0.1:<port>`. The check now accepts the desktop scheme and a header the desktop forwarder stripped, but only when the request already arrived on a loopback address; a plain web page still cannot reach a loopback port without sending an `Origin`, so the door stays shut. No other behaviour changed.
 - **1.6.6** — The results the plugin already computed are now shown. A **Dry run** button next to *Clean* asks the exact same question without `confirm`, so you see what a delete would free before anything goes; the result banner then survives the rescan that follows it (it used to be erased a line later). Plan steps name targets in words instead of printing `npm-cache, chrome-cache, pip-cache`, an empty plan says "nothing worth doing" instead of rendering a hole, and route errors arrive as a stable `code` the panel translates, so a Chinese user never reads `origin rejected` or `unknown target: x`. Every real clean now appends one line to `$DSH_HOME/dsh-disk-cleaner/history.jsonl`, and a **Clean history** panel reads it back with a *Copy as CSV* button. Under the hood: scan walks four targets at a time instead of all 32 at once, `SystemRoot` decides where the Windows targets live instead of a hardcoded `C:`, a request without an `Origin` header is refused unless it arrived on loopback (see 1.6.7), and a refused directory removal is counted separately from a legitimately full one.
 - **1.6.5** — Documentation only: the install section now points at the Release it names (the prebuilt-tarball link is labelled v1.6.5 and resolves to the v1.6.5 tag), and the catalog paragraph says the awesome-dsh-plugin entry is merged rather than pending review. No code change.
@@ -440,16 +441,16 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 已收录进精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，已合并）：在 dshmarket 里搜索 **dsh-disk-cleaner** 即可一键安装。下面的直接安装方式就是手动做同一件事。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.7`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.8`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.7 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.7) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.8 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.8) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.7/dsh-disk-cleaner-1.6.7.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.8/dsh-disk-cleaner-1.6.8.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -457,7 +458,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.7"
+    "dsh-disk-cleaner": "^1.6.8"
   },
   "dsh": {
     "profile": {
@@ -549,6 +550,7 @@ Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模�
 
 ### 更新记录
 
+- **1.6.8** — 补上 1.6.7 的另一半：桌面窗口如果发的是 `Origin: http://localhost:<端口>`、而请求实际到达 `127.0.0.1`，1.6.7 仍然会报「origin rejected」——因为它逐字比较这两个字符串。现在判定改为看**连接的来源地址**（远端网页无法影响这个值），再看 `Origin`：桌面自有协议、压根没有 `Origin`、或任何 loopback 主机名都放行，其余照旧拒绝；即便是 loopback 连接，`https://evil.example` 也进不来。空间评估的三条错误路径（评估、打开位置、跑计划步骤）统一走面板已有的「稳定 code → 中文文案」通道，不会再直接显示原始英文串。
 - **1.6.7** — 修掉 1.6.6 带进来的一个回归：把「没有 Origin 头的请求」一律拒绝，连插件自己的面板都进不了接口（界面报「请求来源不被接受」）——桌面窗口发请求时 Origin 是 `dsh-app://app`，不是 `http://127.0.0.1:<端口>`。现在的判定接受桌面协议，也接受被桌面转发层剥掉的头，但前提是请求本身已经到达 loopback 地址；普通网页不发 Origin 就到不了 loopback 端口，所以门仍然是关的。其余行为没变。
 - **1.6.6** — 把插件本来就算出来的结果真正显示出来。*清理* 旁边多了 **预演** 按钮：发同一个请求但不带 `confirm`，删之前就能看到会释放多少；清理结果横幅不再被紧随其后的重新扫描抹掉（以前下一行就被清空）。计划步骤改用目标名称，不再直出 `npm-cache, chrome-cache, pip-cache`；没有可做的事时说明「现在没有值得动手的地方」，而不是留一片空白；接口错误改带稳定 `code`，由面板翻成中文，不会再出现 `origin rejected` 或 `unknown target: x`。每次真正清理都会往 `$DSH_HOME/dsh-disk-cleaner/history.jsonl` 追加一行，新增的 **清理记录** 面板可读回并按 *复制为 CSV* 导出。底层：扫描从「32 个目标同时跑」改为每次 4 个，Windows 目标路径改由 `SystemRoot` 决定而不再硬编码 `C:`，缺少 `Origin` 头的请求会被拒绝（这项判定在 1.6.7 收紧到只放行 loopback，见下），目录删除被拒与非空目录被跳过分别计数。
 - **1.6.5** — 仅文档修正：安装段现在指向它所写的那个 Release（预构建 tarball 的链接标为 v1.6.5，且指向 v1.6.5 的 tag）；目录段落也从「审核中」改为「已合并」。代码无变化。
