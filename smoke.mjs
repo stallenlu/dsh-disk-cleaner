@@ -416,7 +416,19 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.11');
+check('the version badge and package agree', pkg.version === '1.6.12');
+check(
+  'each volume is drawn as its own card, the way dsh-cost-meter draws a balance',
+  source.includes("className: `dsc-drive-card${level}`") &&
+    source.includes(".dsc-drive-card {") &&
+    source.includes(".dsc-drive-line {") &&
+    source.includes("background: var(--dsb-surface-3);"),
+);
+check(
+  'the volume fill is the baseline blue, not a private accent',
+  source.includes("background: var(--dsb-accent-speed);") &&
+    !/\.dsc-bar-fill \{[^}]*var\(--dsb-accent-intelligence\)/.test(source),
+);
 
 check(
   'the harness keeps its own renderer caches out of every target',
