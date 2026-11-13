@@ -1,6 +1,6 @@
 {
   "name": "dsh-disk-cleaner",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "type": "module",
   "description": "Disk Cleaner for DSH: scan known-safe cache locations, see what they occupy, and reclaim the space from a panel or from the agent.",
   "keywords": [
@@ -23,6 +23,7 @@
     "lib/catalog.js",
     "lib/audit.js",
     "lib/plan.js",
+    "lib/history.js",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",

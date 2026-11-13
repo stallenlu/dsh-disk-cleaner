@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.5` |
+| **version** | `1.6.6` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -166,16 +166,16 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 Listed in the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), merged): search **dsh-disk-cleaner** there and install it in one click. The direct installs below do the same thing by hand.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.5`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.6`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.5 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.5); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.6 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.6); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.5/dsh-disk-cleaner-1.6.5.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.6/dsh-disk-cleaner-1.6.6.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.5"
+    "dsh-disk-cleaner": "^1.6.6"
   },
   "dsh": {
     "profile": {
@@ -204,7 +204,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 98 assertions, zero dependencies
+node smoke.mjs                       # 110 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -258,22 +258,23 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (434)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
+├─ lib/index.js    (482)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
 ├─ lib/catalog.js  (1222)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
-├─ lib/client.js  (1597)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
+├─ lib/client.js  (1808)  Client half: slots, panel, preferences, zh/en dictionaries, CSS
 ├─ locale/{en,zh}.json    Display metadata (meta.title / meta.description)
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              98 assertions, zero dependencies
+└─ smoke.mjs              110 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
 
 ### What's new
 
+- **1.6.6** — The results the plugin already computed are now shown. A **Dry run** button next to *Clean* asks the exact same question without `confirm`, so you see what a delete would free before anything goes; the result banner then survives the rescan that follows it (it used to be erased a line later). Plan steps name targets in words instead of printing `npm-cache, chrome-cache, pip-cache`, an empty plan says "nothing worth doing" instead of rendering a hole, and route errors arrive as a stable `code` the panel translates, so a Chinese user never reads `origin rejected` or `unknown target: x`. Every real clean now appends one line to `$DSH_HOME/dsh-disk-cleaner/history.jsonl`, and a **Clean history** panel reads it back with a *Copy as CSV* button. Under the hood: scan walks four targets at a time instead of all 32 at once, `SystemRoot` decides where the Windows targets live instead of a hardcoded `C:`, a request without an `Origin` header is refused, and a refused directory removal is counted separately from a legitimately full one.
 - **1.6.5** — Documentation only: the install section now points at the Release it names (the prebuilt-tarball link is labelled v1.6.5 and resolves to the v1.6.5 tag), and the catalog paragraph says the awesome-dsh-plugin entry is merged rather than pending review. No code change.
 - **1.6.4** — The panel now paints itself with [dsh-design-baseline](https://github.com/stallenlu/dsh-design-baseline): the stylesheet is inlined into the client bundle, the panel root carries `dsb-root`, and every colour resolves through a `--dsb-*` token instead of a host `--dsw-alias-*` name. That means it follows the host's light and dark themes (including `color-scheme`, so native `<select>` menus and scrollbars match), and colour is spent only on data that has state — the primary button and the active chip are now inverted neutrals rather than brand blue. No behaviour changes.
 - **1.6.3** — Safety and honesty rather than new features. The Recycle Bin is no longer filed under `safe`: emptying it cannot be undone, so it is never preselected, never picked by "select all", and carries its own `irreversible` note instead of the generic "rebuilt; next start is slower". The confirm dialog now names each target and the total instead of asking a generic "delete these?". A target that names no environment root is bounded by the volume it sits on rather than skipping the boundary check. `measure` and `purge` now count entries in the same unit, and a walk that hits the 2,000,000-entry cap says so (`truncated`) instead of claiming exact totals. A directory removal refused for a reason other than "not empty" is counted as `blocked` instead of being swallowed, and a clean that left files behind reports a warning rather than a green success. The orphan target is named for what it actually measures (the QQGuild folder).
@@ -437,16 +438,16 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 已收录进精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，已合并）：在 dshmarket 里搜索 **dsh-disk-cleaner** 即可一键安装。下面的直接安装方式就是手动做同一件事。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.5`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.6`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.5 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.5) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.6 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.6) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.5/dsh-disk-cleaner-1.6.5.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.6/dsh-disk-cleaner-1.6.6.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -454,7 +455,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.5"
+    "dsh-disk-cleaner": "^1.6.6"
   },
   "dsh": {
     "profile": {
@@ -475,7 +476,7 @@ bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 p
 ### 开发
 
 ```bash
-node smoke.mjs                       # 98 条断言，零依赖
+node smoke.mjs                       # 110 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -529,22 +530,23 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ```
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
-├─ lib/index.js    (434)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
+├─ lib/index.js    (482)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
 ├─ lib/catalog.js  (1222)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
-├─ lib/client.js  (1597)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
+├─ lib/client.js  (1808)  Client 半面：slot、面板、偏好、zh/en 字典、CSS
 ├─ locale/{en,zh}.json    展示元数据（meta.title / meta.description）
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              98 条断言，零依赖
+└─ smoke.mjs              110 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
 
 ### 更新记录
 
+- **1.6.6** — 把插件本来就算出来的结果真正显示出来。*清理* 旁边多了 **预演** 按钮：发同一个请求但不带 `confirm`，删之前就能看到会释放多少；清理结果横幅不再被紧随其后的重新扫描抹掉（以前下一行就被清空）。计划步骤改用目标名称，不再直出 `npm-cache, chrome-cache, pip-cache`；没有可做的事时说明「现在没有值得动手的地方」，而不是留一片空白；接口错误改带稳定 `code`，由面板翻成中文，不会再出现 `origin rejected` 或 `unknown target: x`。每次真正清理都会往 `$DSH_HOME/dsh-disk-cleaner/history.jsonl` 追加一行，新增的 **清理记录** 面板可读回并按 *复制为 CSV* 导出。底层：扫描从「32 个目标同时跑」改为每次 4 个，Windows 目标路径改由 `SystemRoot` 决定而不再硬编码 `C:`，缺少 `Origin` 头的请求会被拒绝，目录删除被拒与非空目录被跳过分别计数。
 - **1.6.5** — 仅文档修正：安装段现在指向它所写的那个 Release（预构建 tarball 的链接标为 v1.6.5，且指向 v1.6.5 的 tag）；目录段落也从「审核中」改为「已合并」。代码无变化。
 - **1.6.4** — 面板改用 [dsh-design-baseline](https://github.com/stallenlu/dsh-design-baseline) 上色：样式表内联进 client bundle，根节点带 `dsb-root`，所有颜色都走 `--dsb-*` 令牌而不是宿主的 `--dsw-alias-*` 名字。因此它跟随宿主的明暗主题（含 `color-scheme`，原生 `<select>` 弹层与滚动条也跟着变），并且颜色只花在有状态的数据上——主按钮与选中项改成中性反色，不再是品牌蓝。行为没有变化。
 - **1.6.3** — 改的是安全与诚实，不是新功能。回收站不再归入「安全」：清空不可恢复，所以它永不被预选、不被「全选」勾中，并单独带 `irreversible` 注意码，而不是笼统的「重建，下次启动慢一些」。确认框现在逐条列出目标名与合计字节，不再只问一句「删除选中缓存目录里的文件？」。没有声明根目录的目标，改为按所在卷做边界校验，而不是直接跳过检查。`measure` 与 `purge` 现在用同一单位计数，走查触到 200 万条上限时会如实标 `truncated`，不再声称精确总量。目录删除失败若原因不是「非空」会计入 `blocked`（此前被静默吞掉），清理后仍有残留的目标会报警告而不是绿色成功。orphan 目标按它实际测量的东西重新命名（QQ 频道目录）。

@@ -229,6 +229,7 @@ const index = read('lib/index.js');
 const catalog = read('lib/catalog.js');
 const plan = read('lib/plan.js');
 const auditSrc = read('lib/audit.js');
+const historySrc = read('lib/history.js');
 
 const { apply } = await import(pathToFileURL(path.join(here, 'lib/index.js')).href);
 check('host exports apply()', typeof apply === 'function');
@@ -264,7 +265,7 @@ check('tool needs no id for overview', JSON.stringify(definition.parameters.requ
 check('tool description warns audit is read-only', /read-only: it never removes anything/.test(definition.description));
 check('every effect is labelled', applied.every((label) => typeof label === 'string' && label.startsWith('dsh-disk-cleaner:')));
 check('tool output schema matches its string reply', definition.output.schema.type === 'string' && typeof (await definition.execute({ action: 'overview' })) === 'string');
-check('the read-only agent clean keeps the audit cache in sync', /if \(!dryRun\) invalidateAudit\(\);[\s\S]*const freed = results\.reduce/.test(index));
+check('the read-only agent clean keeps the audit cache in sync', /if \(!dryRun\) \{[\s\S]*?invalidateAudit\(\);[\s\S]*?const freed = results\.reduce/.test(index));
 check('orphan target descriptions state the real 30-day rule, not four signals / two years',
   /30 days/.test(catalog) && /30 days/.test(index) && /QQGuild data folder/.test(source) &&
   !/four independent signals|over two years|no Start-menu shortcut|two years/.test(catalog + index + source));
@@ -412,7 +413,106 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.5');
+check('the version badge and package agree', pkg.version === '1.6.6');
+
+check(
+  'a dry run is one click away and never sends confirm',
+  /const runClean = async \(dry\) => \{/.test(source) &&
+    /const body = isDry \? \{ ids \} : \{ ids, confirm: true \};/.test(source) &&
+    /onClick: \(\) => runClean\(true\)/.test(source) &&
+    /onClick: \(\) => runClean\(false\)/.test(source),
+  'the panel must be able to ask what a delete would free before doing it',
+);
+
+check(
+  'a dry run never claims it freed anything',
+  /if \(isDry\) \{[\s\S]{0,320}t\('dryRunHint'\)[\s\S]{0,320}return;/.test(source) &&
+    /dryRunHint: '/.test(source),
+  'the dry-run banner must say nothing was deleted',
+);
+
+check(
+  'the notice a clean sets survives the rescan that follows it',
+  /await scan\(\{ keepNotice: true \}\);/.test(source) &&
+    /if \(!keepNotice\) setNotice\(null\);/.test(source),
+  'rescanning used to erase the result the user just asked for',
+);
+
+check(
+  'plan steps name targets in words, never catalog ids',
+  !source.includes("(step.ids || []).join(', ')") &&
+    source.includes('(step.ids || []).map((id) => targetName(t, id))'),
+  'the panel must not print npm-cache, chrome-cache, pip-cache at the user',
+);
+
+check(
+  'an empty plan says so instead of rendering nothing',
+  /if \(plan.steps.length === 0\)/.test(source) &&
+    /planEmpty: '/.test(source) &&
+    /t\('planEmpty'\)/.test(source),
+  'nothing worth doing is a conclusion, not a blank',
+);
+
+check(
+  'route errors carry a stable code the panel can translate',
+  /const coded = \(code, message\) => \{/.test(index) &&
+    /coded\('unknown-target'/.test(index) &&
+    /coded\('no-targets'/.test(index) &&
+    /code: typeof error\?\.code === 'string' \? error\.code : 'internal'/.test(index) &&
+    /function describeError\(t, err\) \{/.test(source) &&
+    /if \(data && typeof data\.code === 'string'\) error\.code = data\.code;/.test(source),
+  'a Chinese panel must not print "origin rejected" or "unknown target: x"',
+);
+
+check(
+  'every route error code has both a Chinese and an English sentence',
+  ['method-not-allowed', 'origin-rejected', 'bad-ids', 'too-many-ids', 'unknown-target', 'unknown-drive', 'drive-not-mounted', 'no-targets', 'unknown-action', 'internal'].every(
+    (code) => source.includes(`'err_${code}': `),
+  ),
+  'an untranslated code falls back to the English message',
+);
+
+check(
+  'a real clean writes one history line and the panel can read it back',
+  /import \{ appendRun, readRuns \} from '\.\/history\.js';/.test(index) &&
+    /if \(action === 'history'\) return \{ runs: readRuns\(50\) \};/.test(index) &&
+    /appendRun\(\{/.test(index) &&
+    /export function appendRun/.test(historySrc) &&
+    /export function readRuns/.test(historySrc) &&
+    /historyTitle: '/.test(source) &&
+    /function History\(\{ t \}\)/.test(source) &&
+    /h\(History, \{ t \}\)/.test(source),
+  'history must survive the tab, and be exportable',
+);
+
+check(
+  'history never throws into the clean path',
+  /try \{/.test(historySrc) &&
+    /catch/.test(historySrc) &&
+    !/throw /.test(historySrc),
+  'the bytes are already gone; failing to log them must not look like a failed clean',
+);
+
+check(
+  'scan bounds its own concurrency instead of walking every target at once',
+  /const SCAN_CONCURRENCY = \d+;/.test(catalog) &&
+    /const worker = async \(\) => \{/.test(catalog) &&
+    !/await Promise\.all\(targets\.map/.test(catalog),
+  '32 volumes at once stalls a spinning disk and the antivirus',
+);
+
+check(
+  'a system target under SystemRoot is read from SystemRoot, not from C:',
+  (catalog.match(/env\('SystemRoot'\)/g) ?? []).length === 2 &&
+    !/C:\\+Windows\\+Temp/.test(catalog),
+  'the boundary check already trusted SystemRoot; the paths have to agree',
+);
+
+check(
+  'a request without an Origin is refused',
+  /if \(typeof origin !== 'string' \|\| typeof host !== 'string'\) return false;/.test(index),
+  'any local process could otherwise drive a destructive route',
+);
 
 check(
   'the panel carries dsh-design-baseline (full mode: css inlined, root tagged, tokens only)',
