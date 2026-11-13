@@ -211,7 +211,7 @@ check('preselect choice persisted', storage.get('dsc.pick') === 'none');
 check('confirm choice persisted', storage.get('dsc.confirm') === 'never');
 
 check('scan honours the preselect preference', source.includes('const want = defaultPick.get();'));
-check('clean honours the confirm preference', source.includes("confirmFirst.get() === 'always'"));
+check('clean honours the confirm preference', source.includes("confirmFirst.get() !== 'always'"));
 check('the settings page reuses the same rows', /function SettingsOptions\(\{ t \}\)[\s\S]{0,400}h\(ConfigRows, \{ t \}\)/.test(source));
 check('re-run asks the host to skip its cache', source.includes('onClick: () => run(true)') && source.includes("force === true ? { force: true } : {}"));
 check('an assessment row opens its folder', source.includes("call('reveal'") && source.includes('dsc-audit-row dsc-openable'));
@@ -377,11 +377,14 @@ check(
     (source.match(/!IRREVERSIBLE\.has\(row\.id\)/g) ?? []).length >= 2,
 );
 check(
-  'every confirm box names the targets and the total',
-  (source.match(/t\('cleanConfirmList'\)/g) ?? []).length === 2 &&
-    (source.match(/t\('cleanConfirmIrreversible'\)/g) ?? []).length === 2 &&
-    !/window\.confirm\(t\('cleanConfirm'\)\)/.test(source),
-  'a bare "delete these?" is not a confirmation, and the plan step is still a delete',
+  'every confirm box names the targets and the total, in a dialog the page draws',
+  source.includes("t('cleanConfirmList')") &&
+    source.includes("t('cleanConfirmIrreversible')") &&
+    source.includes('function ConfirmDialog(') &&
+    !/window\.confirm\(/.test(source) &&
+    (source.match(/h\(ConfirmDialog, \{/g) ?? []).length === 2,
+  'window.confirm is drawn by the browser outside the page, so it ignores the dark theme; ' +
+    'both the main button and a plan step must ask through the panel dialog',
 );
 check(
   'a clean that left files behind is not reported as a green success',
@@ -413,15 +416,49 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.8');
+check('the version badge and package agree', pkg.version === '1.6.9');
 
 check(
   'a dry run is one click away and never sends confirm',
-  /const runClean = async \(dry\) => \{/.test(source) &&
+  /const runClean = \(dry\) => \{/.test(source) &&
     /const body = isDry \? \{ ids \} : \{ ids, confirm: true \};/.test(source) &&
     /onClick: \(\) => runClean\(true\)/.test(source) &&
     /onClick: \(\) => runClean\(false\)/.test(source),
   'the panel must be able to ask what a delete would free before doing it',
+);
+
+check(
+  'the dialog lists the targets itself, so the sentence holds no catalog ids or bullet text',
+  source.includes("className: 'dsc-dialog-list'") &&
+    source.includes("list.map((line, index) => h('li',") &&
+    !source.includes('{list}'),
+  'the template used to splice a newline-joined blob into one sentence; the list is markup now',
+);
+
+check(
+  'the confirmation is painted with the panel tokens, not by the platform',
+  source.includes('.dsc-overlay { position: fixed;') &&
+    source.includes('.dsc-dialog { box-sizing: border-box;') &&
+    /background: var\(--dsb-surface\)/.test(source) &&
+    /border: 1px solid var\(--dsb-line-strong\)/.test(source) &&
+    !/window\.confirm\(/.test(source),
+  'window.confirm ignores color-scheme and the baseline tokens, so a dark panel gets a white box',
+);
+
+check(
+  'the confirmation can be dismissed without deleting anything',
+  /if \(event\.key === 'Escape'\)/.test(source) &&
+    source.includes("className: 'dsc-overlay', role: 'presentation', onClick: onNo") &&
+    /className: 'dsc-btn dsc-btn-danger', onClick: onYes/.test(source),
+  'Escape, the overlay and the cancel button must all leave the files alone',
+);
+
+check(
+  'the destructive button does not take focus, so a stray Enter cannot delete',
+  source.includes('function ConfirmDialog(') &&
+    !/autoFocus/.test(source) &&
+    source.includes("role: 'dialog'") &&
+    source.includes("'aria-modal': 'true'"),
 );
 
 check(
