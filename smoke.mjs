@@ -413,7 +413,7 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.6');
+check('the version badge and package agree', pkg.version === '1.6.7');
 
 check(
   'a dry run is one click away and never sends confirm',
@@ -509,9 +509,13 @@ check(
 );
 
 check(
-  'a request without an Origin is refused',
-  /if \(typeof origin !== 'string' \|\| typeof host !== 'string'\) return false;/.test(index),
-  'any local process could otherwise drive a destructive route',
+  'a request without an Origin is refused unless it arrived on loopback',
+  /const LOOPBACK_HOSTS = new Set\(/.test(index) &&
+    /const APP_SCHEME = 'dsh-app:\/\/';/.test(index) &&
+    /if \(typeof origin !== 'string' \|\| origin === 'null'\) return onLoopback;/.test(index) &&
+    /if \(origin\.startsWith\(APP_SCHEME\)\) return onLoopback;/.test(index) &&
+    !/if \(typeof origin !== 'string' \|\| typeof host !== 'string'\) return false;/.test(index),
+  'the desktop shell posts from dsh-app://, and a stripped Origin can still be the panel itself',
 );
 
 check(
