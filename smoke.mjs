@@ -416,7 +416,7 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.10');
+check('the version badge and package agree', pkg.version === '1.6.11');
 
 check(
   'the harness keeps its own renderer caches out of every target',
@@ -424,6 +424,13 @@ check(
     /const hostOwned = \(\) => \{/.test(catalog) &&
     /if \(owned\.some\(\(root\) =>/.test(catalog),
   'emptying them makes the live page rebuild and reload itself mid-clean',
+);
+
+check(
+  'the host updater folder is treated as host-owned too',
+  /@\?deepseek-ai\.\?dsh-desktop\(-updater\)\?/.test(catalog) &&
+    /if \(!entry\.isDirectory\(\) \|\| entry\.isSymbolicLink\(\)\) continue;/.test(catalog),
+  'app-updaters would otherwise delete the payload that updates the running app',
 );
 
 check(
@@ -485,9 +492,33 @@ check(
 
 check(
   'the notice a clean sets survives the rescan that follows it',
-  /await scan\(\{ keepNotice: true \}\);/.test(source) &&
+  /await scan\(\{ keepNotice: true, quiet: true \}\);/.test(source) &&
     /if \(!keepNotice\) setNotice\(null\);/.test(source),
   'rescanning used to erase the result the user just asked for',
+);
+
+check(
+  'the rescan that follows a clean does not blink the buttons',
+  /const quiet = opts\.quiet === true;/.test(source) &&
+    /if \(!quiet\) setBusy\('scan'\);/.test(source) &&
+    /if \(!quiet\) setBusy\(''\);/.test(source),
+  'a clean used to flip busy from cleaning to scanning and back',
+);
+
+check(
+  'a clean keeps the groups the user had open open',
+  /for \(const section of groupRows\(rows \|\| \[\]\)\) \{/.test(source) &&
+    /if \(!isFolded\(section\)\) openNow\[section\.key\] = true;/.test(source) &&
+    /setToggled\(\(prev\) => \(\{ \.\.\.prev, \.\.\.openNow \}\)\);/.test(source),
+  'a section that reaches zero folds itself away and the list collapses',
+);
+
+check(
+  'a clean puts the scroll position back where the reader left it',
+  /const rootRef = useRef\(null\);/.test(source) &&
+    /ref: rootRef/.test(source) &&
+    /rootRef\.current\.scrollTop = scrolled;/.test(source),
+  'the panel scrolls itself, so a shorter list jumps it back to the top',
 );
 
 check(
