@@ -1,6 +1,6 @@
 {
   "name": "dsh-disk-cleaner",
-  "version": "1.6.9",
+  "version": "1.6.10",
   "type": "module",
   "description": "Disk Cleaner for DSH: scan known-safe cache locations, see what they occupy, and reclaim the space from a panel or from the agent.",
   "keywords": [

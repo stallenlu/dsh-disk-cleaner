@@ -416,7 +416,22 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.9');
+check('the version badge and package agree', pkg.version === '1.6.10');
+
+check(
+  'the harness keeps its own renderer caches out of every target',
+  !/subdirs\(path\.join\(roaming, '@deepseek-ai', 'dsh-desktop'\)/.test(catalog) &&
+    /const hostOwned = \(\) => \{/.test(catalog) &&
+    /if \(owned\.some\(\(root\) =>/.test(catalog),
+  'emptying them makes the live page rebuild and reload itself mid-clean',
+);
+
+check(
+  'a path inside the running host is refused even if a target asks for it',
+  /const owned = hostOwned\(\);/.test(catalog) &&
+    /within\(candidate, root\)\)\) continue;/.test(catalog),
+  'the exclusion belongs in resolveTargets so one definition cannot reintroduce it',
+);
 
 check(
   'a dry run is one click away and never sends confirm',

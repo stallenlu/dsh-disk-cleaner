@@ -5,7 +5,7 @@
 <!-- badges -->
 | | |
 | --- | --- |
-| **version** | `1.6.9` |
+| **version** | `1.6.10` |
 | **DSH** | `0.2.1-rc.5`（开发与实测版本；用到 `plugins.bundle.config`、`settings.section`） |
 | **license** | [MIT](LICENSE) |
 | **Node** | `>= 22`（仅运行冒烟测试需要） |
@@ -166,16 +166,16 @@ These are enforced in `lib/catalog.js` and must not be relaxed:
 
 Listed in the curated [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) catalog, which powers **dshmarket → Discover** ([PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970), merged): search **dsh-disk-cleaner** there and install it in one click. The direct installs below do the same thing by hand.
 
-Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.9`:
+Published on npm as [`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner) — latest `1.6.10`:
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-A prebuilt tarball is attached to the [v1.6.9 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.9); installing from it skips DSH's build-approval step:
+A prebuilt tarball is attached to the [v1.6.10 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.10); installing from it skips DSH's build-approval step:
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.9/dsh-disk-cleaner-1.6.9.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.10/dsh-disk-cleaner-1.6.10.tgz
 ```
 
 Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
@@ -183,7 +183,7 @@ Then enable it in the profile — in `$DSH_PROFILE_DIR/package.json`:
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.9"
+    "dsh-disk-cleaner": "^1.6.10"
   },
   "dsh": {
     "profile": {
@@ -204,7 +204,7 @@ The bundle's own `cordis.patch.yml` inserts the plugin row; no profile patch edi
 ### Development
 
 ```bash
-node smoke.mjs                       # 114 assertions, zero dependencies
+node smoke.mjs                       # 116 assertions, zero dependencies
 node --check lib/client.js           # and lib/index.js, lib/catalog.js, lib/audit.js, lib/plan.js
 ```
 
@@ -260,7 +260,7 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (525)  Host: HTTP route + disk_cleaner tool, same run() for both; reveal
-├─ lib/catalog.js  (1242)  The 32 targets, measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1252)  The 32 targets, measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  Read-only assessment, 10-minute cache, areaPaths, exposes no deletion
 ├─ lib/plan.js     (150)  Pure: measurements → ordered steps
 ├─ lib/history.js   (71)  Append-only run log in $DSH_HOME/dsh-disk-cleaner; never throws
@@ -269,13 +269,21 @@ What the smoke test deliberately does **not** cover: anything that walks a real 
 ├─ icon.svg               Plugin icon
 ├─ README.md              This file
 ├─ LICENSE                MIT
-└─ smoke.mjs              114 assertions, zero dependencies
+└─ smoke.mjs              116 assertions, zero dependencies
 ```
 
 Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode), `main` (keyed by the package name), `settings.section` (order 30, disposed in sidebar-only mode), `plugins.bundle.config` (keyed by the package name).
 
 ### What's new
 
+- **1.6.10** — Cleaning no longer restarts the harness. The `app-caches` target listed the
+  harness's own Chromium profile (`%APPDATA%\@deepseek-ai\dsh-desktop`), so cleaning it
+  emptied the caches of the very process drawing the panel: Chromium rebuilt them at once and
+  the renderer reloaded, which reads as the plugin hot-restarting instead of returning to its
+  own screen. Those four folders are gone from the target, and `resolveTargets()` now refuses
+  any path inside the host's data folder outright, so a future definition cannot add them
+  back. Everything else in `app-caches` (WPS, FTNN, Qoder, Trae, WeChat devtools, appGallery)
+  is unchanged. Two regression assertions cover both halves of the fix.
 - **1.6.9** — The one white box left in a dark panel is gone. The confirmation was `window.confirm`, which the browser draws outside the document: it cannot see `color-scheme`, the baseline tokens or the host theme, so a dark panel got a light rectangle in the middle of it. It is now a dialog the panel draws itself — same information (how many, how much, every target with its size, anything irreversible), painted with `--dsb-*`, dismissible with Escape, the overlay or Cancel, and the destructive button deliberately holds no focus so a stray Enter cannot delete. The plan-step confirmation goes through the same component. No behaviour change beyond the painting.
 - **1.6.8** — Fixes the other half of the 1.6.7 story: the panel still answered "origin rejected" when the desktop window sent `Origin: http://localhost:<port>` while the request itself arrived at `127.0.0.1`, because the check compared those strings literally. The gate now decides on the **peer address** of the connection — something a remote page cannot influence — and only then looks at `Origin`: the app's own scheme, no `Origin` at all, or any loopback host name is accepted, everything else is still refused. An `https://evil.example` origin is rejected even from a loopback socket. The three assessment error paths (evaluate, reveal, run-a-plan-step) now go through the same translated-code path as the rest of the panel, so a Chinese user sees "请求来源不被接受" rather than the raw `origin rejected` string.
 - **1.6.7** — Fixes a regression 1.6.6 shipped: refusing every request without an `Origin` header locked the plugin's own panel out of its API ("请求来源不被接受"), because the desktop window posts from `dsh-app://app`, not from `http://127.0.0.1:<port>`. The check now accepts the desktop scheme and a header the desktop forwarder stripped, but only when the request already arrived on a loopback address; a plain web page still cannot reach a loopback port without sending an `Origin`, so the door stays shut. No other behaviour changed.
@@ -443,16 +451,16 @@ Client-half slots: `sidebar.panellist` (order 50, disposed in settings-only mode
 
 已收录进精选目录 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)，它是 **dshmarket → 发现** 的数据源（[PR #12970](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12970)，已合并）：在 dshmarket 里搜索 **dsh-disk-cleaner** 即可一键安装。下面的直接安装方式就是手动做同一件事。
 
-已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.9`。
+已发布到 npm：[`dsh-disk-cleaner`](https://www.npmjs.com/package/dsh-disk-cleaner)，最新版 `1.6.10`。
 
 ```bash
 npm i dsh-disk-cleaner
 ```
 
-[v1.6.9 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.9) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
+[v1.6.10 Release](https://github.com/stallenlu/dsh-disk-cleaner/releases/tag/v1.6.10) 还附带一个预构建 tarball，从它安装可跳过 DSH 的构建授权步骤：
 
 ```bash
-dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.9/dsh-disk-cleaner-1.6.9.tgz
+dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner/releases/download/v1.6.10/dsh-disk-cleaner-1.6.10.tgz
 ```
 
 然后在 profile 里启用 —— 在 `$DSH_PROFILE_DIR/package.json`：
@@ -460,7 +468,7 @@ dsh plugin --profile <profile> add https://github.com/stallenlu/dsh-disk-cleaner
 ```json
 {
   "dependencies": {
-    "dsh-disk-cleaner": "^1.6.9"
+    "dsh-disk-cleaner": "^1.6.10"
   },
   "dsh": {
     "profile": {
@@ -481,7 +489,7 @@ bundle 自带的 `cordis.patch.yml` 会插入插件行，无需改 profile 的 p
 ### 开发
 
 ```bash
-node smoke.mjs                       # 114 条断言，零依赖
+node smoke.mjs                       # 116 条断言，零依赖
 node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、lib/audit.js、lib/plan.js
 ```
 
@@ -537,7 +545,7 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ├─ package.json           dsh.bundle.patch + dsh.client { platform: "web" }
 ├─ cordis.patch.yml       - insert:  id: dsh-disk-cleaner
 ├─ lib/index.js    (525)  Host：HTTP 路由 + disk_cleaner 工具，共用同一个 run()，含 reveal
-├─ lib/catalog.js  (1242)  32 个目标，measurePath / purgePath / resolveTargets / drives
+├─ lib/catalog.js  (1252)  32 个目标，measurePath / purgePath / resolveTargets / drives
 ├─ lib/audit.js    (365)  只读评估，10 分钟缓存，带 areaPaths，不暴露任何删除
 ├─ lib/plan.js     (150)  纯函数：测量结果 → 有序步骤
 ├─ lib/history.js   (71)  只追加的运行日志，落在 $DSH_HOME/dsh-disk-cleaner；永不抛错
@@ -546,13 +554,19 @@ node --check lib/client.js           # 以及 lib/index.js、lib/catalog.js、li
 ├─ icon.svg               插件图标
 ├─ README.md              本文件
 ├─ LICENSE                MIT
-└─ smoke.mjs              114 条断言，零依赖
+└─ smoke.mjs              116 条断言，零依赖
 ```
 
 Client 半面注册的 slot：`sidebar.panellist`（order 50，仅设置页模式下拆除）、`main`（以包名为 key）、`settings.section`（order 30，仅侧边栏模式下拆除）、`plugins.bundle.config`（以包名为 key）。
 
 ### 更新记录
 
+- **1.6.10** — 清理不再把宿主自己重启一遍。`app-caches` 目标里列了宿主自己的 Chromium 配置目录
+  （`%APPDATA%\@deepseek-ai\dsh-desktop`），于是清它等于清掉正在绘制这个面板的进程的缓存：
+  Chromium 立刻重建这些目录，渲染进程随之重载，看上去就像插件热重启了一次、而不是回到自己的界面。
+  现在这 4 个目录已从目标中移除，并且 `resolveTargets()` 会直接拒绝宿主数据目录下的任何路径，
+  以后改目标定义也加不回来。`app-caches` 里其余部分（WPS、FTNN、Qoder、Trae、微信开发者工具、appGallery）不变。
+  两条回归断言覆盖这个修复的两半。
 - **1.6.9** — 深色面板里最后一块白框没了。确认框原来是 `window.confirm`，它由浏览器画在文档之外：读不到 `color-scheme`、读不到基线令牌、也不跟宿主主题，于是深色面板中间出现一个浅色矩形。现在改成面板自己画的弹层：信息一条不少（几项、多少字节、每个目标的名称与大小、哪些不可恢复），用 `--dsb-*` 上色，Escape、点遮罩、点取消都能退出，危险按钮刻意不自动聚焦，免得顺手一个回车就删了。计划步骤的确认走同一个组件。除绘制方式外没有行为变化。
 - **1.6.8** — 补上 1.6.7 的另一半：桌面窗口如果发的是 `Origin: http://localhost:<端口>`、而请求实际到达 `127.0.0.1`，1.6.7 仍然会报「origin rejected」——因为它逐字比较这两个字符串。现在判定改为看**连接的来源地址**（远端网页无法影响这个值），再看 `Origin`：桌面自有协议、压根没有 `Origin`、或任何 loopback 主机名都放行，其余照旧拒绝；即便是 loopback 连接，`https://evil.example` 也进不来。空间评估的三条错误路径（评估、打开位置、跑计划步骤）统一走面板已有的「稳定 code → 中文文案」通道，不会再直接显示原始英文串。
 - **1.6.7** — 修掉 1.6.6 带进来的一个回归：把「没有 Origin 头的请求」一律拒绝，连插件自己的面板都进不了接口（界面报「请求来源不被接受」）——桌面窗口发请求时 Origin 是 `dsh-app://app`，不是 `http://127.0.0.1:<端口>`。现在的判定接受桌面协议，也接受被桌面转发层剥掉的头，但前提是请求本身已经到达 loopback 地址；普通网页不发 Origin 就到不了 loopback 端口，所以门仍然是关的。其余行为没变。
