@@ -321,7 +321,23 @@ check(
   'a group head toggles its own section',
   /onClick: \(\) => toggleGroup\(section\)/.test(source) && !/toggleGroup\(section\.key\)/.test(source),
 );
-check('select all skips the folded sections', /visibleRows\(\)\.filter/.test(source));
+check(
+  'select all reaches folded groups too, so it never silently picks nothing',
+  /const eligible = on \? shown\.filter\(\(row\) => row\.bytes > 0 && !IRREVERSIBLE\.has\(row\.id\)\)/.test(source) &&
+    !/visibleRows\(\)\.filter/.test(source),
+);
+check(
+  'a click with nothing selected explains itself instead of failing silently',
+  source.includes("if (picked.size === 0) {") &&
+    source.includes("setNotice({ kind: 'warn', text: t('pickFirst') });") &&
+    zhKeys.includes('pickFirst') &&
+    enKeys.includes('pickFirst'),
+);
+check(
+  'the clean buttons stay clickable when idle so the hint can appear',
+  source.includes("disabled: busy !== '',") &&
+    !/disabled: busy !== '' \|\| picked\.size === 0/.test(source),
+);
 check('the panel folds the group list', /function groupRows\(rows\)/.test(source) && /aria-expanded/.test(source) && /section\.bytes === 0/.test(source));
 check('every note code has an explanation', ['why_safe', 'why_in-use', 'why_rebuild', 'why_elevation', 'why_pending-update', 'why_rollback', 'why_superseded', 'why_history', 'why_duplicate', 'why_database-backup', 'why_orphan'].every((k) => zhKeys.includes(k) && enKeys.includes(k)));
 const areaIds = [...auditSrc.matchAll(/^\s{6}id: '([a-z-]+)',$/gm)].map((m) => m[1]);
@@ -416,7 +432,7 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.12');
+check('the version badge and package agree', pkg.version === '1.6.13');
 check(
   'each volume is drawn as its own card, the way dsh-cost-meter draws a balance',
   source.includes("className: `dsc-drive-card${level}`") &&
