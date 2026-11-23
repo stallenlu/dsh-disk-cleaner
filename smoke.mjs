@@ -432,7 +432,46 @@ check(
     source.includes('QQ') ,
   'it only ever measures the QQGuild folder',
 );
-check('the version badge and package agree', pkg.version === '1.6.13');
+// --- 1.6.14: no concurrent cleans, honest failure codes, live capacity cards -------------
+check(
+  'a synchronous in-flight lock blocks a double-clicked clean',
+  source.includes('const cleaningRef = useRef(false);') &&
+    source.includes('if (cleaningRef.current) return;') &&
+    source.includes('cleaningRef.current = true;') &&
+    /finally \{\s*cleaningRef\.current = false;/.test(source),
+  'setBusy is async, so two clicks in one tick both saw an idle panel',
+);
+check(
+  'capacity cards re-read overview on every mount',
+  /useEffect\(\(\) => \{\s*\/\/ Always re-read/.test(source) &&
+    !source.includes('if (drives.length > 0) return undefined;') &&
+    source.includes('}, [setDrives]);'),
+  'a cached reading went stale after a clean in a previous visit',
+);
+check(
+  'every scan pulls live drive numbers alongside the targets',
+  /const data = await call\('scan'/.test(source) &&
+    /void call\('overview'\)[\s\S]*?setDrives\(Array\.isArray\(o\.drives\)/.test(source),
+  'the quiet rescan a clean ends with must refresh the cards too',
+);
+check(
+  'skipped entries carry an errno breakdown instead of a bare count',
+  /function noteFailure\(codes, error\)/.test(catalog) &&
+    catalog.includes('const errorCodes = {};') &&
+    /results\.push\(\{ id: target\.id, bytes, removed: files, failed, errorCodes, truncated \}\)/.test(catalog) &&
+    /results\.push\(\{ id: target\.id, bytes, removed, failed, errorCodes, truncated \}\)/.test(catalog),
+  'otherwise a 68k-skip run cannot tell ENOENT from EPERM',
+);
+check(
+  'the banner turns error codes into a human phrase',
+  source.includes('const failedBreakdown = (codes) => {') &&
+    source.includes("['ENOENT', t('failGone')]") &&
+    source.includes("['EBUSY', t('failLocked')]") &&
+    source.includes("${t('failed')} ${failed} (${failedBreakdown(codes)})") &&
+    source.includes('failGone: '),
+  'never dump ENOENT into the panel',
+);
+check('the version badge and package agree', pkg.version === '1.6.14');
 check(
   'each volume is drawn as its own card, the way dsh-cost-meter draws a balance',
   source.includes("className: `dsc-drive-card${level}`") &&
